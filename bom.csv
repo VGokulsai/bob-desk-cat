@@ -1,0 +1,17 @@
+part,qty,unit_inr,total_inr,source,link,purpose,status
+Espressif ESP32-S3-WROOM-1-N8R8 module,1,409,409,Robu,https://robu.in/product/espressif-esp32-s3-wroom-1-n8r8-modules/,Bob's brain (module soldered on our own PCB),in Robu cart
+GC9A01 1.28in round TFT 240x240 (GoldenMorning),1,449,449,Robu,https://robu.in/product/goldenmorning-gc9a01-7p-240x240-spi-1-28-inch-round-display-module/,Bob's face,in Robu cart
+TowerPro SG90 servo 180 deg (Good Quality; the Rs89 standard one is out of stock),3,185,555,Robu,https://robu.in/?s=sg90+servo&post_type=product,Ear motors (2) + tail (1),in Robu cart (cart total Rs1674.61 on 4 Nov)
+GSPK3005TN 8 ohm 0.5W 30mm speaker,1,91,91,Robu,https://robu.in/product/gspk3005tn-8r0-5w-l300s-2-54t/,Purr sound,in Robu cart
+AP2114H-3.3 1A LDO (SOT-223),1,35,35,Robu,https://robu.in/product/ap2114h-3-3trg1-diodes-incorporated-65db1khz-1a-fixed-3-3v-positive-6v-sot-223-voltage-regulators-linear-low-drop-out-ldo-regulators-rohs/,5V USB to 3.3V for ESP32 + screen,in Robu cart
+MCP6001T-I/OT op-amp (SOT-23-5),1,37,37,Robu,https://robu.in/product/mcp6001t-i-ot-microchip-operational-amplifier-rrio-1-amplifier-1-mhz-0-6-v-%c2%b5s-1-8v-to-6v-sot-23-5-pins/,Mic preamp,in Robu cart
+6x6x5 tactile switch (pack of 10),1,19,19,Robu,https://robu.in/product/6x6x5-tactile-push-button-switch/,BOOT + RESET buttons,in Robu cart
+1x40 2.54mm male header strip,2,8,16,Robu,https://robu.in/product/1x40-berg-strip-male-connector/,Screen + servo connectors (2 = Robu's Rs10 line minimum),in Robu cart
+470uF 16V SMD electrolytic (Lelon VZH471M1CTR),3,4.87,14.61,Robu,https://robu.in/product/vzh471m1ctr-0810-lelon-470uf-16v-%c2%b120-smdd8xl10mm-aluminum-electrolytic-capacitors-smd-rohs-2/,Servo power buffer (3 = Robu's Rs10 line minimum),in Robu cart
+20cm female-female jumper wires (40 pcs),1,49,49,Robu,https://robu.in/product/20cm-dupont-wire-color-jumper-cable-2-54mm-1p-1p-female-female-40pcs/,Screen mounted in Bob's face wired to the board,in Robu cart
+Custom PCB 2-layer HASL (5 pcs),1,,,JLCPCB,,Bob's own ESP32-S3 board,to order by 14 Nov (estimate in REPORT.md)
+USB-C 16-pin SMD receptacle,1,,,LCSC,,Power + programming,with the JLCPCB order
+PAM8302AAS class-D amp (SOP-8; replaces NS4168 which has no KiCad symbol),1,,,LCSC,,Drives the speaker from an IO5 PWM signal,with the JLCPCB order
+Electret mic capsule 9.7mm,1,,,LCSC,,Hears talking and claps,with the JLCPCB order
+0805 resistors + capacitors (exact values after schematic),1,,,LCSC,,Decoupling + CC pull-downs + mic circuit,with the JLCPCB order
+3D-printed Bob shell,1,,,local print service,,Bob's body (head + ears mount),after the PCB fits
