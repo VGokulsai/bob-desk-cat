@@ -6305,7 +6305,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "10uf"
+		(property "Value" "10uF"
 			(at 115.57 66.0399 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7430,7 +7430,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "1K"
+		(property "Value" "1k"
 			(at 215.9 102.8699 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8865,7 +8865,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "0.1uf"
+		(property "Value" "0.1uF"
 			(at 260.35 66.0399 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9536,7 +9536,7 @@
 				)
 			)
 		)
-		(property "Value" "100K"
+		(property "Value" "100k"
 			(at 222.25 93.98 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9694,7 +9694,7 @@
 				)
 			)
 		)
-		(property "Value" "1K"
+		(property "Value" "1k"
 			(at 193.04 129.54 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10327,7 +10327,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "0.1uf"
+		(property "Value" "0.1uF"
 			(at 22.86 156.2099 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10729,7 +10729,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "2.2K"
+		(property "Value" "2.2k"
 			(at 173.99 64.7699 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10810,7 +10810,7 @@
 				)
 			)
 		)
-		(property "Value" "1uf"
+		(property "Value" "1uF"
 			(at 53.34 171.45 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10972,7 +10972,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "10uf"
+		(property "Value" "10uF"
 			(at 139.7 66.0399 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11491,7 +11491,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100K"
+		(property "Value" "100k"
 			(at 204.47 82.5499 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11969,7 +11969,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "10uf"
+		(property "Value" "10uF"
 			(at 34.29 156.2099 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -12453,7 +12453,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100K"
+		(property "Value" "100k"
 			(at 204.47 64.7699 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -12953,7 +12953,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "470UF"
+		(property "Value" "470uF"
 			(at 43.18 80.3909 0)
 			(show_name no)
 			(do_not_autoplace no)
