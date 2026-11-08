@@ -21,4 +21,4 @@
 "U1","AP2114H-3.3","Package_TO_SOT_SMD:SOT-223-3_TabPin2","1"
 "U2","ESP32-S3-WROOM-1","RF_Module:ESP32-S3-WROOM-1","1"
 "U3","MCP6001-OT","Package_TO_SOT_SMD:SOT-23-5","1"
-"U4","PAM8302AAS","Package_SO:SOIC-8_3.9x4.9mm_P1.27mm","1"
+"U4","PAM8302AASCR","Package_SO:MSOP-8_3x3mm_P0.65mm","1"
