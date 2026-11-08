@@ -9,9 +9,9 @@ MCP6001T-I/OT op-amp (SOT-23-5),1,37,37,Robu,https://robu.in/product/mcp6001t-i-
 1x40 2.54mm male header strip,2,8,16,Robu,https://robu.in/product/1x40-berg-strip-male-connector/,Screen + servo connectors (2 = Robu's Rs10 line minimum),in Robu cart
 470uF 16V SMD electrolytic (Lelon VZH471M1CTR),3,4.87,14.61,Robu,https://robu.in/product/vzh471m1ctr-0810-lelon-470uf-16v-%c2%b120-smdd8xl10mm-aluminum-electrolytic-capacitors-smd-rohs-2/,Servo power buffer (3 = Robu's Rs10 line minimum),in Robu cart
 20cm female-female jumper wires (40 pcs),1,49,49,Robu,https://robu.in/product/20cm-dupont-wire-color-jumper-cable-2-54mm-1p-1p-female-female-40pcs/,Screen mounted in Bob's face wired to the board,in Robu cart
-Custom PCB 2-layer HASL (5 pcs),1,,,JLCPCB,,Bob's own ESP32-S3 board,to order by 14 Nov (estimate in REPORT.md)
-USB-C 16-pin SMD receptacle,1,,,LCSC,,Power + programming,with the JLCPCB order
-PAM8302AAS class-D amp (SOP-8; replaces NS4168 which has no KiCad symbol),1,,,LCSC,,Drives the speaker from an IO5 PWM signal,with the JLCPCB order
-Electret mic capsule 9.7mm,1,,,LCSC,,Hears talking and claps,with the JLCPCB order
+Custom PCB 2-layer HASL (5 pcs),1,,,JLCPCB,https://jlcpcb.com/,Bob's own ESP32-S3 board,to order by 14 Nov (estimate in REPORT.md)
+USB-C 16-pin SMD receptacle,1,,,LCSC,https://www.lcsc.com/product-detail/C165948.html,Power + programming,"HRO TYPE-C-31-M-12 (LCSC C165948), matches the J1 footprint; with the JLCPCB order"
+PAM8302AAS class-D amp (SOP-8; replaces NS4168 which has no KiCad symbol),1,,,LCSC,https://www.lcsc.com/product-detail/Audio-Power-OpAmps_span-style-background-color-ff0-Diodes-span-Incorporated-PAM8302AADCR_C112137.html,Drives the speaker from an IO5 PWM signal,"CHECK: board footprint is SOIC-8, so this must be PAM8302AADCR (SO-8, LCSC C112137, showed OUT OF STOCK 8 Nov). PAM8302AASCR (C113367) is MSOP-8 and will NOT fit; with the JLCPCB order"
+Electret mic capsule 9.7mm,1,,,LCSC,https://www.lcsc.com/product-detail/Microphones_Dragonstate-AMF-O97L45-DB_C20200114.html,Hears talking and claps,"9.7mm through-hole electret, -45dB, 2.2k (matches R5 2.2k bias); wired to MK1 header; with the JLCPCB order"
 0805 resistors + capacitors (exact values after schematic),1,,,LCSC,,Decoupling + CC pull-downs + mic circuit,with the JLCPCB order
 3D-printed Bob shell,1,,,local print service,,Bob's body (head + ears mount),after the PCB fits
