@@ -6,7 +6,7 @@
 
 Bob is a cat that I drew in my sketchbook. Further up he went into the Wispr Flow hiring challenge as the main character that introduces my portfolio for that challenge.
 
-After the completion of the challenge I moved on to Hack Club's Fland, which is like a hard hackathon lasting 2 months. You build the project by hand: no AI, no bot can help you. You record your time, you get your XP, and stuff like that.
+After the completion of the challenge I moved on to Hack Club's Fallen, which is like a hard hackathon lasting 2 months. You build the project by hand: no AI, no bot can help you. You record your time, you get your XP, and stuff like that.
 
 ## Why I'm building him
 
@@ -14,17 +14,17 @@ Bob, the bot named Bob, is my cat, my sketchbook inspiration. Why am I building 
 
 ## What Bob can do
 
-What Bob can do is this: he has a screen, a mic, a speaker, and 3 servos. When we touch the ball he acts like an ordinary cat. He yawns, sleeps, and wakes up. His mic, speaker, and servos are green.
+What Bob can do is this: he has a screen, a mic, a speaker, and 3 servos. When we touch Bob he acts like an ordinary cat. He yawns, sleeps, and wakes up. His mic, speaker, and servos are green.
 
 ## The board
 
-The board that I'm using is the ESP32 S3, 73 mm, 62.5 mm, 30 arcs, and USB-C. These are the parts that are going to be on the board. As for the checks there are 0 ERC errors, 0 DRC errors, and 0 unconnected things.
+The board that I'm using is the ESP32-S3, 73 mm x 62.5 mm, 38 parts, and USB-C. These are the parts that are going to be on the board. As for the checks there are 0 ERC errors, 0 DRC errors, and 0 unconnected things.
 
 ![Schematic](hardware/fab/bob-schematic.png)
 
 ## The hardest part
 
-The next little bit of a bad story is that the USB-D+ cable was a really tough one. That was the only single wire that I needed to connect in the entire schematic so that I could sub. As it was the last one, when I was going to connect it, there was no way. I had to reconnect so many wires, some of which I had to, and change the schematic design, replace parts, and stuff like that. It's been a really tough one until now.
+The next little bit of a bad story is that the USB D+ wire was a really tough one. That was the only single wire that I needed to connect in the entire schematic so that I could submit. As it was the last one, when I was going to connect it, there was no way. I had to reconnect so many wires, some of which I had to, and change the schematic design, replace parts, and stuff like that. It's been a really tough one until now.
 
 ## Cost and what's next
 
