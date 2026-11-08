@@ -1,35 +1,37 @@
-![Bob, the desk cat](banner.png)
+﻿# Bob, the desk cat
 
-# Bob, the desk cat
+![Bob's board](hardware/fab/bob-top.png)
 
-Bob started as a cat in my sketchbook. Now he's becoming a palm-sized robot on my own ESP32-S3 board:
-a round screen is his face, two servo ears and a servo tail move for real, a touch pad lets you pat him,
-a mic hears you and a speaker lets him meow. Everything runs offline.
+## The story
 
-Built for Hack Club Fallen (Maker Faire Shenzhen, Dec 2026).
+Bob is a cat that I drew in my sketchbook. Further up he went into the Wispr Flow hiring challenge as the main character that introduces my portfolio for that challenge.
 
-![Bob awake, meowing when patted, asleep when left alone](face/preview.png)
+After the completion of the challenge I moved on to Hack Club's Fland, which is like a hard hackathon lasting 2 months. You build the project by hand: no AI, no bot can help you. You record your time, you get your XP, and stuff like that.
 
-## Status
-- [x] Parts list: [bom.csv](bom.csv), costs in [REPORT.md](REPORT.md)
-- [x] Schematic (KiCad): [hardware/](hardware/)
-- [ ] PCB layout: parts placed, routing the last few wires, then DRC and order
-- [x] Face simulator: [face/face.py](face/face.py) (blinks, breathes, ears twitch, meows when patted, sleeps when ignored)
-- [ ] Port the face to the ESP32 + GC9A01
-- [ ] Body: plan in [BODY.md](BODY.md)
+## Why I'm building him
 
-## Hardware
-- ESP32-S3-WROOM-1 (N8R8) module on a custom 2-layer board, about 73 x 63 mm
-- GC9A01 1.28" round 240x240 screen (the face)
-- 3 x SG90 servos: left ear, right ear, tail
-- Capacitive touch pad, electret mic + MCP6001 preamp
-- PAM8302 class-D amp + 30 mm speaker
-- USB-C power and programming, AP2114H 3.3 V regulator
+Bob, the bot named Bob, is my cat, my sketchbook inspiration. Why am I building him? The reason that I'm building Bob is that I could feel less lonely while coding and while doing things.
 
-## Face simulator
-```
-py -3 -m pip install pygame-ce
-py -3 face/make_meow.py      # builds meow1-3.wav from sine waves, no recording
-py -3 face/face.py           # click = pat
-```
-The ears turn around their base like servo horns and ease into place, so the same angles can drive the real servos later.
+## What Bob can do
+
+What Bob can do is this: he has a screen, a mic, a speaker, and 3 servos. When we touch the ball he acts like an ordinary cat. He yawns, sleeps, and wakes up. His mic, speaker, and servos are green.
+
+## The board
+
+The board that I'm using is the ESP32 S3, 73 mm, 62.5 mm, 30 arcs, and USB-C. These are the parts that are going to be on the board. As for the checks there are 0 ERC errors, 0 DRC errors, and 0 unconnected things.
+
+![Schematic](hardware/fab/bob-schematic.png)
+
+## The hardest part
+
+The next little bit of a bad story is that the USB-D+ cable was a really tough one. That was the only single wire that I needed to connect in the entire schematic so that I could sub. As it was the last one, when I was going to connect it, there was no way. I had to reconnect so many wires, some of which I had to, and change the schematic design, replace parts, and stuff like that. It's been a really tough one until now.
+
+## Cost and what's next
+
+The cost of all the parts is ₹1,600 as I'm from India. What's next is that I'm going to be submitting the online version of Bob for now: the schematic, the PCB design, the doc, and the readme. Then I have to order all the hardware parts that I need to build him so that we can move on more quickly and probably go design.
+
+## Files
+
+- `hardware/` KiCad schematic and PCB
+- `hardware/fab/` Gerbers for JLCPCB, BOM, parts positions, schematic PDF, board renders
+- `bom.csv` shopping list
