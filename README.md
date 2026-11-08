@@ -14,7 +14,7 @@ Bob, the bot named Bob, is my cat, my sketchbook inspiration. Why am I building 
 
 ## What Bob can do
 
-What Bob can do is this: he has a screen, a mic, a speaker, and 3 servos. When we touch Bob he acts like an ordinary cat. He yawns, sleeps, and wakes up. His mic, speaker, and servos are green.
+What Bob can do is this: he has a screen, a mic, a speaker, and 3 servos. When we touch Bob he acts like an ordinary cat. He yawns, sleeps, and wakes up. His mic, speaker, and servos are all connected.
 
 ## The board
 
