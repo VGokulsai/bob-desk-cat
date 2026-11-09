@@ -1,5 +1,5 @@
 __pycache__/
 *.bak
 *-backups/
-*.kicad_prl
 fp-info-cache
+FIRMWARE-COACH.md
