@@ -13,5 +13,13 @@ Custom PCB 2-layer HASL (5 pcs),1,,,JLCPCB,https://jlcpcb.com/,Bob's own ESP32-S
 USB-C 16-pin SMD receptacle,1,,,LCSC,https://www.lcsc.com/product-detail/C165948.html,Power + programming,"HRO TYPE-C-31-M-12 (LCSC C165948), matches the J1 footprint; with the JLCPCB order"
 PAM8302AASCR class-D amp (MSOP-8; replaces NS4168 which has no KiCad symbol),3,,,LCSC,https://www.lcsc.com/product-detail/Audio-Power-OpAmps_Diodes-Incorporated-PAM8302AASCR_C113367.html,Drives the speaker from an IO5 PWM signal,"LCSC C113367; board footprint changed to MSOP-8 on 8 Nov to match (the SOIC-8 PAM8302AADCR was out of stock); order 3 (2 spares, MSOP is fiddly to hand-solder); with the JLCPCB order"
 Electret mic capsule 9.7mm,1,,,LCSC,https://www.lcsc.com/product-detail/Microphones_Dragonstate-AMF-O97L45-DB_C20200114.html,Hears talking and claps,"9.7mm through-hole electret, -45dB, 2.2k (matches R5 2.2k bias); wired to MK1 header; with the JLCPCB order"
-0805 resistors + capacitors (exact values after schematic),1,,,LCSC,,Decoupling + CC pull-downs + mic circuit,with the JLCPCB order
-3D-printed Bob shell,1,,,local print service,,Bob's body (head + ears mount),after the PCB fits
+0805 10uF 25V X5R cap (Samsung CL21A106KAYNNNE),5,,,LCSC,https://www.lcsc.com/product-detail/C15850.html,"C1-C3,C7,C12: 5V/3V3 bulk + mic gain cap","LCSC C15850, JLCPCB basic part; with the JLCPCB order"
+0805 100nF 50V X7R cap (YAGEO CC0805KRX7R9BB104),5,,,LCSC,https://www.lcsc.com/product-detail/C49678.html,"C4,C6,C10,C11,C13: decoupling + amp input caps","LCSC C49678, JLCPCB basic part; with the JLCPCB order"
+0805 1uF 50V X7R cap (Samsung CL21B105KBFNNNE),2,,,LCSC,https://www.lcsc.com/product-detail/C28323.html,"C5,C8: EN delay + mic coupling","LCSC C28323, JLCPCB basic part; with the JLCPCB order"
+0805 10nF 50V X7R cap (Samsung CL21B103KBANNNC),1,,,LCSC,https://www.lcsc.com/product-detail/C1710.html,C9: speaker PWM filter,"LCSC C1710, JLCPCB basic part; with the JLCPCB order"
+0805 5.1k 1% resistor (UNI-ROYAL 0805W8F5101T5E),2,,,LCSC,https://www.lcsc.com/product-detail/C27834.html,"R1,R2: USB-C CC pull-downs","LCSC C27834, JLCPCB basic part; with the JLCPCB order"
+0805 10k 1% resistor (UNI-ROYAL 0805W8F1002T5E),1,,,LCSC,https://www.lcsc.com/product-detail/C17414.html,R3: EN pull-up,"LCSC C17414, JLCPCB basic part; with the JLCPCB order"
+0805 1k 1% resistor (UNI-ROYAL 0805W8F1001T5E),3,,,LCSC,https://www.lcsc.com/product-detail/C17513.html,"R4,R9,R10: touch, mic gain, speaker PWM filter","LCSC C17513, JLCPCB basic part; with the JLCPCB order"
+0805 2.2k 1% resistor (UNI-ROYAL 0805W8F2201T5E),1,,,LCSC,https://www.lcsc.com/product-detail/C17520.html,R5: mic bias,"LCSC C17520, JLCPCB basic part; with the JLCPCB order"
+0805 100k 1% resistor (UNI-ROYAL 0805W8F1003T5E),3,,,LCSC,https://www.lcsc.com/product-detail/C149504.html,R6-R8: mic preamp feedback + bias,"LCSC C149504, JLCPCB basic part; with the JLCPCB order"
+3D-printed Bob shell,1,,,local print service,,Bob's body (head + ears mount),"to design (Tinkercad/Onshape), printed via Hack Club or a local printer"
