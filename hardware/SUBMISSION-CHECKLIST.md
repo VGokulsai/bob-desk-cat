@@ -34,7 +34,8 @@ From fallen.hackclub.com/docs/submitting, checked 9 Nov 2026.
 
 ## Before ordering
 
-- [x] DRC 0 errors, 0 unconnected, 0 parity; ERC 0 errors
+- [x] DRC 0 errors, 0 unconnected, 0 parity; ERC 0 errors (re-checked 12 Nov after the mounting holes)
+- [x] Mounting holes: 3 x M2.5 (H1-H3, 2.7 mm NPTH) added 12 Nov; positions in `SHELL-SPEC.md`. No top-right hole (no clear spot near J1); gerbers, drill, STEP, renders and schematic re-exported
 - [ ] Warnings, HIS call: DRC 16 (9 silk clipped by mask, 7 silk overlap), ERC 7 (dangling wire ends)
 - [ ] JLCPCB quote: check the via size option on the order page accepts 0.2 mm hole / 0.45 mm via (see below)
 

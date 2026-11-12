@@ -13,7 +13,7 @@ uses the same points with y negated.) Extracted from `bob's project.kicad_pcb` o
 |---|---|
 | Outline | 73.0 x 62.5 mm rectangle, square corners |
 | Thickness | 1.6 mm |
-| Mounting holes | **None.** The board has no mounting holes; see "Holding the board" below |
+| Mounting holes | **3 x M2.5**, 2.7 mm non-plated, at (3.4, 3.5), (3.5, 52.0), (70.0, 59.5); see "Mounting holes" below |
 | Parts side | Everything is on the top. The bottom only has through-hole pin tails |
 | Bottom clearance | Leave 3 mm under the board for header/switch tails and solder, or trim them |
 
@@ -49,6 +49,7 @@ uses the same points with y negated.) Extracted from `bob's project.kicad_pcb` o
  60.0 |+--+                                                      +-------+      |
       +-------------------------------------------------------------------------+  y=62.5
  1 char = 1 mm across, 1 row = 2.5 mm down.  3 = J3 touch, 5/6 = J5/J6 ears, M = MK1 mic
+ Mounting holes H1-H3 are not drawn; positions are in "Mounting holes" below.
 ```
 
 ### Connectors and parts the shell cares about
@@ -89,7 +90,29 @@ No courtyard within 2 mm of the edge in these spans:
 | Left (x = 0) | y 0 to 24.2, y 41.5 to 55.7 |
 | Right (x = 73) | y 19.5 to 22.4, y 56.3 to 62.5 |
 
-### Holding the board (no holes, so pick one)
+### Mounting holes
+
+Added 12 Nov 2026. KiCad footprint `MountingHole:MountingHole_2.7mm_M2.5`: 2.7 mm drill, no copper ring,
+keep-clear circle 5.9 mm across (courtyard radius 2.95 mm). Screw: M2.5. Positions are hole centres, same
+top-left origin as above.
+
+| Ref | x (mm) | y (mm) | In from edges | Nearest copper (hole edge to it) | Nearest part courtyard |
+|---|---|---|---|---|---|
+| H1 | 3.4 | 3.5 | 3.4 left, 3.5 top | SW1 pad, about 20 mm | U2 (antenna keepout corner), courtyards 0.08 mm apart; keepout 0.07 mm outside H1's courtyard |
+| H2 | 3.5 | 52.0 | 3.5 left | MK1+ track, 1.50 mm | MK1, 0.74 mm |
+| H3 | 70.0 | 59.5 | 3.0 right, 3.0 bottom | /EAR_R track, 2.10 mm | J7, 0.24 mm |
+
+**No top-right hole.** J1 (USB-C), its CC and USB data tracks, R1, R2 and U1 fill the top-right corner and
+the whole right edge; nowhere on the top or right edge clears tracks by 0.5 mm. The nearest clear spots are
+inside the board, at (60.0, 19.5) (13 mm in from the right edge) or (66.0, 42.0) beside J2. Neither is on
+the board yet. Without one, support the top-right corner under J1 with a ledge or post so a USB plug
+pushed in does not flex the board.
+
+For a screw post under each hole: M2.5 self-tapping pilot 2.1 to 2.2 mm, boss 5.5 mm across at most so it stays
+inside the 5.9 mm keep-clear circle (see Printing). Heads: an M2.5 pan head is about 4.5 to 5 mm across;
+H3's courtyard is 0.24 mm from J7's, so check the head clears J7 on your board.
+
+### Other ways to hold the board (with or as well as the screws)
 
 | Option | How | Trade-off |
 |---|---|---|
