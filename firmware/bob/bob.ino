@@ -26,13 +26,13 @@ const int PIN_TOUCH = 1;      // touch pad on the head
 const int EAR_REST = 90;          // ears straight up
 const int EAR_TILT = 25;          // how far an ear leans during the rub (degrees)
 const int TAIL_REST = 90;
-const int TAIL_SWAY = 30;         // how far the tail sways while purring
+const int TAIL_SWAY = 45;         // how far the tail sways while purring
 const int TAIL_FLICK = 40;        // how far the tail flicks on a clap
 const int RUB_SHIFT = 8;          // how many pixels his face leans left/right during the rub
 const int RUB_STEPS = 6;          // how many rubs per pat
 const int RUB_STEP_MS = 280;      // speed of each rub (bigger = slower, lazier cat)
 const int PURR_LOW = 85, PURR_HIGH = 100;   // purr sound (Hz)
-const unsigned long SLEEP_AFTER_MS = 60000; // fall asleep after 60 s alone
+const unsigned long SLEEP_AFTER_MS = 120000; // fall asleep after 2 min alone
 const bool CUTE_SPARKLES = true;  // little shine in his eyes
 // sparkle spots (x, y, radius) on the 240x240 face, nudge if they miss the pupils
 const int SPARK[4][3] = { {77, 84, 4}, {70, 97, 2}, {157, 84, 4}, {150, 97, 2} };
