@@ -28,10 +28,19 @@ The next little bit of a bad story is that the USB D+ wire was a really tough on
 
 ## Cost and what's next
 
-The cost of all the parts is ₹1,600 as I'm from India. What's next is that I'm going to be submitting the online version of Bob for now: the schematic, the PCB design, the doc, and the readme. Then I have to order all the hardware parts that I need to build him so that we can move on more quickly and probably go design.
+The cost of all the parts is about ₹2,600 as I'm from India. What's next is that I'm going to be submitting the online version of Bob for now: the schematic, the PCB design, the doc, and the readme. Then I have to order all the hardware parts that I need to build him so that we can move on more quickly and probably go design.
+
+## How to use him
+
+To start, plug Bob in with USB-C. He chirps "hello" and shows his face. When you pat his head, he half-shuts his eyes and rubs into your hand, his ears tilt and his tail sways. When you clap, he looks up and shakes his tail like he's a little angry or upset with you.
+
+Alone for about 2 minutes, he falls asleep. A pat or a clap wakes him up.
+
+Bob is my original idea of a cat from my sketchbook, which I drew. Status: the board and the code are done. Parts are going to be ordered after Fallen approves, and then I just have to build him for the Maker Faire in Shenzhen, China, which hopefully I get selected for.
 
 ## Files
 
 - `hardware/` KiCad schematic and PCB
-- `hardware/fab/` Gerbers for JLCPCB, BOM, parts positions, schematic PDF, board renders
+- `hardware/fab/` Gerbers for JLCPCB, BOM, parts positions, schematic PDF, board renders, board STEP
+- `firmware/bob/` Bob's firmware (face, pat, clap, sleep)
 - `bom.csv` shopping list
