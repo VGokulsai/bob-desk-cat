@@ -38,6 +38,14 @@ Alone for about 2 minutes, he falls asleep. A pat or a clap wakes him up.
 
 Bob is my original idea of a cat from my sketchbook, which I drew. Status: the board and the code are done. Parts are going to be ordered after Fallen approves, and then I just have to build him for the Maker Faire in Shenzhen, China, which hopefully I get selected for.
 
+## The shell
+
+![Bob's shell: base tray + head](hardware/shell/bob-shell-assembly.png)
+
+A base tray (81 × 70.5 × 25 mm) that the board screws onto with 3 M2.5 posts, with a USB-C slot, and a head on top with the round face window and two ear-servo slots. STEP files are in `hardware/shell/`.
+
+Note: I got sick and was admitted to hospital right before the design deadline, so the shell (base + head), the firmware starter and parts of the PCB reroute were made with AI help (Claude). The idea, the drawing of Bob, the schematic and the board design are mine, and I'll tune and build everything myself.
+
 ## Files
 
 - `hardware/` KiCad schematic and PCB
