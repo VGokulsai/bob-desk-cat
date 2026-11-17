@@ -3,3 +3,4 @@ __pycache__/
 *-backups/
 fp-info-cache
 FIRMWARE-COACH.md
+*.glb
