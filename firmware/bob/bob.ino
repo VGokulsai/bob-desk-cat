@@ -3,6 +3,7 @@
 //
 // Board: "ESP32S3 Dev Module", USB CDC On Boot = Enabled, PSRAM = OPI PSRAM, Flash = 8MB
 // Libraries: Arduino_GFX (moononournation). Servos run on the ESP32's own PWM, no servo library.
+// Known-good versions (compiled in CI): ESP32 core "esp32 by Espressif" 3.3.0 + "GFX Library for Arduino" 1.6.0.
 //
 // What it does:
 //   - shows Bob's face (from the drawing) and blinks every few seconds
