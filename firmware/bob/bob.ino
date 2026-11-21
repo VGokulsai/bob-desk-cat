@@ -2,7 +2,7 @@
 // Face = Gokul's own Bob drawings (face/art), turned into screen images by face/make_faces_h.py
 //
 // Board: "ESP32S3 Dev Module", USB CDC On Boot = Enabled, PSRAM = OPI PSRAM, Flash = 8MB
-// Libraries: Arduino_GFX (moononournation), ESP32Servo
+// Libraries: Arduino_GFX (moononournation). Servos run on the ESP32's own PWM, no servo library.
 //
 // What it does:
 //   - shows Bob's face (from the drawing) and blinks every few seconds
@@ -12,7 +12,6 @@
 //   - nobody around for a while -> he falls asleep
 
 #include <Arduino_GFX_Library.h>
-#include <ESP32Servo.h>
 #include "bob_faces.h"   // face_idle, face_blink, face_half, face_talk, face_lick (240x240)
 
 // ---------- pins (from the schematic) ----------
@@ -44,6 +43,16 @@ const int CLAP_LEVEL = 1200;  // mic jump that counts as a clap
 Arduino_DataBus *bus = new Arduino_ESP32SPI(PIN_DC, PIN_CS, PIN_SCK, PIN_MOSI, GFX_NOT_DEFINED);
 Arduino_GFX *gfx = new Arduino_GC9A01(bus, PIN_RST, 0, true);
 
+// SG90 servo on the ESP32's PWM: 50 Hz, pulse 0.5 ms (0 deg) to 2.5 ms (180 deg)
+struct Servo {
+  int pin = -1;
+  void attach(int p) { pin = p; ledcAttach(pin, 50, 14); }   // 14-bit: 16383 = one 20 ms period
+  void write(int deg) {
+    deg = constrain(deg, 0, 180);
+    uint32_t us = 500 + (uint32_t)deg * 2000 / 180;
+    ledcWrite(pin, us * 16383 / 20000);
+  }
+};
 Servo earL, earR, tail;
 unsigned long lastActivity = 0, nextBlink = 0;
 bool asleep = false;
