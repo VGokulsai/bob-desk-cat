@@ -20,5 +20,6 @@ lines = [
 y = 250
 for ln in lines:
     d.text((60, y), ln, font=F(26), fill=(201, 209, 217)); y += 40
-im.save(r"C:\Users\sridh\bob-desk-cat\hardware\shell\cat\bob-ci-pass.png")
+import os
+im.save(os.path.join(os.path.dirname(os.path.abspath(__file__)), "bob-ci-pass.png"))
 print("ok")
