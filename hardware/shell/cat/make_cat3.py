@@ -75,7 +75,7 @@ t = np.clip(dist / rad[None, :], 0, 1)
 D = cap[None, :] * np.sqrt(1 - (1 - t) ** 2) * body2d          # half-depth at (x, z)
 D = nd.gaussian_filter(D, 5.0) * body2d                          # blend the depth bands smoothly
 
-Ymax = int(max(cap)) + 3
+Ymax = int(max(cap)) + 20                    # room for the legs and paws that stick out in front
 ys = np.arange(-Ymax, Ymax) + 0.5
 vol = np.abs(ys[None, :, None]) < D[:, None, :]                  # vol[x, y, z]
 
@@ -102,6 +102,7 @@ inside &= vol
 open_fp = inside[:, :, int(WALL) + 2]
 vol[:, :, :int(WALL) + 1] &= ~open_fp[:, :, None]
 shell = vol & ~inside
+shell0 = shell.copy()                                # before the intentional cut-outs, for the hole check
 
 def box_idx(x0, x1, y0, y1, z0, z1):
     return (slice(int(np.floor(x0 + X0)), int(np.ceil(x1 + X0))), slice(int(np.floor(y0 + Ymax)), int(np.ceil(y1 + Ymax))),
@@ -142,6 +143,20 @@ sv = [(cx - SERVO[0] / 2, cx + SERVO[0] / 2) for cx in EAR_X]
 print("ear servos at x = %.1f and %.1f, gap between them %.1f mm" % (EAR_X[0], EAR_X[1], sv[1][0] - sv[0][1]))
 print("screen vs ear servos (3D boxes):", "CLASH" if clash else "OK, no clash")
 print("neck cavity min width: %.1f mm" % (2 * (D[int(X0), int(NECK_CUT_Z)] - WALL)))
+# holes: nothing solid may touch the grid's edge (it would be cut open there), and walking in from
+# the front or back, every line that reaches the cavity must pass through a wall first
+edge = vol[0].any() or vol[-1].any() or vol[:, 0].any() or vol[:, -1].any() or vol[:, :, -1].any()
+print("solid touches the grid edge:", "YES (cut open!)" if edge else "no")
+n_holes = 0
+for xi in range(shell.shape[0]):
+    for zi in range(int(WALL) + 1, shell.shape[2]):
+        ci = inside[xi, :, zi]
+        if not ci.any():
+            continue
+        f, b = np.argmax(ci), len(ci) - 1 - np.argmax(ci[::-1])
+        if not shell0[xi, :f, zi].any() or not shell0[xi, b + 1:, zi].any():
+            n_holes += 1
+print("accidental wall holes (window/USB/tail slots not counted):", n_holes)
 
 # ---------- 6. meshes ----------
 def to_mesh(v, origin):
