@@ -9,11 +9,14 @@
 //   - shows Bob's face (from the drawing) and blinks every few seconds
 //   - pat his head -> he rubs into your hand like a real cat: eyes half-shut,
 //     face leans side to side, ears tilt with the rub, tail sways, purr
-//   - loud clap -> he looks up and flicks his tail
+//   - after the pat he licks his paw (lick face) like a cat grooming
+//   - loud clap -> he looks up, flicks his tail, and sometimes meows
+//   - he meows hello on power-up, and now and then on his own (talk face while he meows)
 //   - nobody around for a while -> he falls asleep
 
 #include <Arduino_GFX_Library.h>
 #include "bob_faces.h"   // face_idle, face_blink, face_half, face_talk, face_lick (240x240)
+#include "bob_meows.h"   // MEOWS[3], MEOW_LEN[3], MEOW_RATE: made by face/make_meows_h.py
 
 // ---------- pins (from the schematic) ----------
 const int PIN_SCK = 12, PIN_MOSI = 11, PIN_CS = 10, PIN_DC = 13, PIN_RST = 14;
@@ -34,6 +37,10 @@ const int RUB_STEP_MS = 280;      // speed of each rub (bigger = slower, lazier 
 const int PURR_LOW = 85, PURR_HIGH = 100;   // purr sound (Hz)
 const unsigned long SLEEP_AFTER_MS = 120000; // fall asleep after 2 min alone
 const bool CUTE_SPARKLES = true;  // little shine in his eyes
+const int LICK_MS = 700;          // how long he licks his paw after a pat
+const int CLAP_MEOW_CHANCE = 3;   // 1 in 3 claps get a meow back
+const bool CHATTY = true;         // meows on his own now and then while awake
+const unsigned long CHAT_MIN_MS = 45000, CHAT_MAX_MS = 120000;  // gap between his own meows
 // sparkle spots (x, y, radius) on the 240x240 face, nudge if they miss the pupils
 const int SPARK[4][3] = { {77, 84, 4}, {70, 97, 2}, {157, 84, 4}, {150, 97, 2} };
 
@@ -55,7 +62,8 @@ struct Servo {
   }
 };
 Servo earL, earR, tail;
-unsigned long lastActivity = 0, nextBlink = 0;
+unsigned long lastActivity = 0, nextBlink = 0, nextChat = 0;
+unsigned long micQuietUntil = 0;   // ignore the mic right after Bob makes a sound, or he hears himself as a clap
 bool asleep = false;
 
 // draw one face picture, shifted dx pixels left/right (for the rub)
@@ -71,6 +79,23 @@ void open()  { showFace(face_idle, 0, true); }
 
 void tone_ms(int freq, int ms) { ledcWriteTone(PIN_SPEAKER, freq); delay(ms); ledcWriteTone(PIN_SPEAKER, 0); }
 
+// play one recorded meow: 8-bit samples as PWM duty on a fast carrier, with the talk face
+void meow(int which) {
+  which = constrain(which, 0, 2);
+  showFace(face_talk);
+  ledcChangeFrequency(PIN_SPEAKER, 40000, 8);              // 40 kHz carrier, 0-255 duty = the waveform
+  const uint8_t *s = MEOWS[which];
+  uint32_t period = 1000000UL / MEOW_RATE, t = micros();
+  for (uint32_t i = 0; i < MEOW_LEN[which]; i++) {
+    ledcWrite(PIN_SPEAKER, pgm_read_byte(s + i));
+    t += period;
+    while ((int32_t)(micros() - t) < 0) {}                  // wait for the next sample time
+  }
+  ledcWrite(PIN_SPEAKER, 0);
+  micQuietUntil = millis() + 600;
+  open();
+}
+
 // a real cat pat: he leans into your hand, side to side, purring
 void rubIntoHand() {
   for (int i = 0; i < RUB_STEPS; i++) {
@@ -84,6 +109,8 @@ void rubIntoHand() {
   }
   ledcWriteTone(PIN_SPEAKER, 0);
   earL.write(EAR_REST); earR.write(EAR_REST); tail.write(TAIL_REST);
+  showFace(face_lick); delay(LICK_MS);                      // happy cat: licks his paw after the pat
+  micQuietUntil = millis() + 600;
   open();
 }
 
@@ -107,8 +134,10 @@ void setup() {
   Serial.printf("touch base %d, threshold %d\n", base, TOUCH_THRESHOLD);
 
   open();
-  tone_ms(880, 80); tone_ms(1320, 120);     // hello chirp
+  delay(400);
+  meow(0);                                  // hello
   lastActivity = millis(); nextBlink = millis() + 3000;
+  nextChat = millis() + random(CHAT_MIN_MS, CHAT_MAX_MS);
 }
 
 void loop() {
@@ -117,7 +146,16 @@ void loop() {
   if (touchRead(PIN_TOUCH) > TOUCH_THRESHOLD) { wake(); rubIntoHand(); }   // pat on the head
 
   int a = analogRead(PIN_MIC), b = analogRead(PIN_MIC);    // crude clap check: big jump
-  if (abs(a - b) > CLAP_LEVEL || a > 3900) { wake(); flickTail(); }
+  if (millis() > micQuietUntil && (abs(a - b) > CLAP_LEVEL || a > 3900)) {
+    wake(); flickTail();
+    if (random(CLAP_MEOW_CHANCE) == 0) meow(random(3));
+    micQuietUntil = millis() + 400;
+  }
+
+  if (CHATTY && !asleep && millis() > nextChat) {           // a little meow on his own
+    meow(random(3));
+    nextChat = millis() + random(CHAT_MIN_MS, CHAT_MAX_MS);
+  }
 
   if (!asleep && now > nextBlink) {                        // blink: half, shut, half, open
     showFace(face_half); delay(40); showFace(face_blink); delay(90);
