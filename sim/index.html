@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bob, live</title>
+<style>
+  :root { --bg:#F7F1E6; --ink:#2a2622; --soft:#8b8178; --pink:#e46aa0; --fur:#c9c4bd; }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; background:var(--bg); color:var(--ink);
+         font-family:'Segoe UI',system-ui,sans-serif; display:grid; place-items:center; }
+  main { text-align:center; padding:24px 16px; }
+  h1 { font-size:20px; font-weight:600; margin:0 0 4px; }
+  p.sub { margin:0 0 28px; color:var(--soft); font-size:14px; }
+  .bob { position:relative; width:300px; height:360px; margin:0 auto; }
+  .ear { position:absolute; top:6px; width:0; height:0; border-left:26px solid transparent; border-right:26px solid transparent;
+         border-bottom:78px solid var(--pink); transform-origin:50% 100%; transition:transform 220ms cubic-bezier(0.23,1,0.32,1); }
+  .ear.l { left:62px; } .ear.r { right:62px; }
+  .head { position:absolute; top:60px; left:30px; width:240px; height:240px; border-radius:50%; overflow:hidden;
+          border:10px solid #9a948d; background:#fff; cursor:pointer; box-sizing:content-box; touch-action:none; }
+  canvas { display:block; }
+  .tail { position:absolute; right:-18px; top:250px; width:14px; height:90px; border-radius:7px; background:var(--fur);
+          transform-origin:50% 100%; transition:transform 180ms cubic-bezier(0.23,1,0.32,1); }
+  .controls { margin-top:28px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+  button { font:inherit; font-size:14px; padding:9px 16px; border-radius:999px; border:1.5px solid var(--ink);
+           background:transparent; color:var(--ink); cursor:pointer; }
+  button[aria-pressed="true"] { background:var(--ink); color:var(--bg); }
+  #status { margin-top:16px; min-height:20px; font-size:13px; color:var(--soft); }
+  @media (prefers-reduced-motion: reduce) { .ear, .tail { transition:none; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Bob, live</h1>
+  <p class="sub">Pat his head. Clap. Leave him alone and he naps.</p>
+  <div class="bob">
+    <div class="ear l" id="earL"></div><div class="ear r" id="earR"></div>
+    <div class="head" id="head" role="button" aria-label="Pat Bob's head"><canvas id="face" width="240" height="240"></canvas></div>
+    <div class="tail" id="tail"></div>
+  </div>
+  <div class="controls">
+    <button id="clapBtn">Clap (space)</button>
+    <button id="micBtn" aria-pressed="false">Use my mic</button>
+    <button id="napBtn">Skip to nap</button>
+  </div>
+  <div id="status">Click anywhere to wake the sound, then pat him.</div>
+</main>
+<script>
+// Same settings as firmware/bob/bob.ino, so this behaves like the real Bob.
+const C = { EAR_TILT:25, TAIL_SWAY:45, TAIL_FLICK:40, RUB_SHIFT:8, RUB_STEPS:6, RUB_STEP_MS:280,
+            PURR_LOW:85, PURR_HIGH:100, SLEEP_AFTER_MS:120000, LICK_MS:700, CLAP_MEOW_CHANCE:3,
+            CHAT_MIN_MS:45000, CHAT_MAX_MS:120000 };
+const SPARK = [[77,84,4],[70,97,2],[157,84,4],[150,97,2]];
+const CROP = [45, 285, 290, 290];            // same crop as face/make_faces_h.py
+
+const ctx = document.getElementById('face').getContext('2d');
+const $ = id => document.getElementById(id);
+const status = t => $('status').textContent = t;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const rand = (a, b) => a + Math.floor(Math.random() * (b - a));
+
+const img = {};
+for (const n of ['idle', 'blink', 'talk', 'lick']) { img[n] = new Image(); img[n].src = `../face/art/bob-${n}.png`; }
+const meows = [1, 2, 3].map(k => new Audio(`../face/meow${k}.wav`));
+
+let asleep = false, busy = false, lastActivity = performance.now(), micQuietUntil = 0, audioCtx = null;
+let nextChat = performance.now() + rand(C.CHAT_MIN_MS, C.CHAT_MAX_MS);
+
+function draw(face, dx = 0, sparkle = false) {
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, 240, 240);
+  const put = (n, a = 1) => { ctx.globalAlpha = a; ctx.drawImage(img[n], ...CROP, dx, 0, 240, 240); ctx.globalAlpha = 1; };
+  if (face === 'half') { put('idle'); put('blink', 0.5); } else put(face);
+  if (sparkle) { ctx.fillStyle = '#fff'; for (const [x, y, r] of SPARK) { ctx.beginPath(); ctx.arc(x + dx, y, r, 0, 7); ctx.fill(); } }
+  if (asleep) { ctx.fillStyle = '#848484'; ctx.font = '600 28px Segoe UI, sans-serif'; ctx.fillText('z', 185, 52); }
+}
+const open = () => draw('idle', 0, true);
+const ears = deg => { $('earL').style.transform = `rotate(${deg}deg)`; $('earR').style.transform = `rotate(${deg}deg)`; };
+const tail = deg => { $('tail').style.transform = `rotate(${deg}deg)`; };
+
+function purr(on, hz) {
+  if (!audioCtx) return;
+  if (!purr.osc && on) { purr.osc = audioCtx.createOscillator(); purr.gain = audioCtx.createGain();
+    purr.osc.type = 'square'; purr.gain.gain.value = 0.05; purr.osc.connect(purr.gain).connect(audioCtx.destination); purr.osc.start(); }
+  if (purr.osc) { if (on) purr.osc.frequency.value = hz; else { purr.osc.stop(); purr.osc = null; } }
+}
+
+async function meow(i) {
+  draw('talk');
+  const m = meows[i]; m.currentTime = 0;
+  try { await m.play(); await new Promise(r => m.onended = r); } catch { await sleep(600); }
+  micQuietUntil = performance.now() + 600;
+  open();
+}
+
+async function rub() {
+  for (let i = 0; i < C.RUB_STEPS; i++) {
+    const side = i % 2 === 0 ? 1 : -1;
+    draw('half', side * C.RUB_SHIFT);
+    ears(side * C.EAR_TILT); tail(side * C.TAIL_SWAY);
+    purr(true, i % 2 ? C.PURR_HIGH : C.PURR_LOW);
+    await sleep(C.RUB_STEP_MS);
+  }
+  purr(false); ears(0); tail(0);
+  draw('lick'); await sleep(C.LICK_MS);
+  micQuietUntil = performance.now() + 600;
+  open();
+}
+
+async function flick() { tail(-C.TAIL_FLICK); await sleep(180); tail(C.TAIL_FLICK); await sleep(180); tail(0); }
+
+async function wake() {
+  if (asleep) { asleep = false; draw('half'); await sleep(300); open(); }
+  lastActivity = performance.now();
+}
+
+// Bob does one thing at a time, like the real firmware loop
+async function act(fn) { if (busy) return; busy = true; try { await fn(); } finally { busy = false; } }
+
+async function pat() { status('Purring.'); await act(async () => { await wake(); await rub(); }); status('He liked that.'); }
+async function clap() {
+  if (performance.now() < micQuietUntil) return;
+  status('He heard you.');
+  await act(async () => {
+    await wake(); await flick();
+    if (rand(0, C.CLAP_MEOW_CHANCE) === 0) await meow(rand(0, 3));
+    micQuietUntil = performance.now() + 400;
+  });
+}
+
+async function blinkLoop() {
+  while (true) {
+    await sleep(rand(2500, 6000));
+    if (asleep || busy) continue;
+    await act(async () => { draw('half'); await sleep(40); draw('blink'); await sleep(90); draw('half'); await sleep(40); open(); });
+  }
+}
+
+setInterval(() => {
+  const now = performance.now();
+  if (!asleep && !busy && now - lastActivity > C.SLEEP_AFTER_MS) { asleep = true; draw('blink'); status('Napping. Pat or clap to wake him.'); }
+  if (!asleep && !busy && now > nextChat) { act(() => meow(rand(0, 3))); nextChat = now + rand(C.CHAT_MIN_MS, C.CHAT_MAX_MS); }
+}, 250);
+
+async function startMic() {
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const an = audioCtx.createAnalyser(); an.fftSize = 512;
+  audioCtx.createMediaStreamSource(stream).connect(an);
+  const buf = new Float32Array(an.fftSize);
+  (function listen() {
+    an.getFloatTimeDomainData(buf);
+    let peak = 0; for (const v of buf) peak = Math.max(peak, Math.abs(v));
+    if (peak > 0.6) clap();
+    requestAnimationFrame(listen);
+  })();
+}
+
+let started = false;
+document.addEventListener('pointerdown', async () => {
+  if (started) return; started = true;
+  audioCtx = new AudioContext();
+  status('Hi Bob.');
+  await act(() => meow(0));                    // hello, like on power-up
+}, { once: false });
+
+$('head').addEventListener('pointerdown', e => { if (started) pat(); });
+$('clapBtn').addEventListener('click', clap);
+document.addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); clap(); } });
+$('napBtn').addEventListener('click', () => { lastActivity -= C.SLEEP_AFTER_MS; });
+$('micBtn').addEventListener('click', async e => {
+  if (e.currentTarget.getAttribute('aria-pressed') === 'true') return;
+  try { await startMic(); e.currentTarget.setAttribute('aria-pressed', 'true'); status('Listening. Clap near your mic.'); }
+  catch { status('Mic blocked, so use the Clap button.'); }
+});
+
+img.idle.onload = open;
+blinkLoop();
+</script>
+</body>
+</html>
