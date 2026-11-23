@@ -49,7 +49,8 @@
 // Same settings as firmware/bob/bob.ino, so this behaves like the real Bob.
 const C = { EAR_TILT:25, TAIL_SWAY:45, TAIL_FLICK:40, RUB_SHIFT:8, RUB_STEPS:6, RUB_STEP_MS:280,
             PURR_LOW:85, PURR_HIGH:100, SLEEP_AFTER_MS:120000, LICK_MS:700, CLAP_MEOW_CHANCE:3,
-            CHAT_MIN_MS:45000, CHAT_MAX_MS:120000 };
+            CHAT_MIN_MS:45000, CHAT_MAX_MS:120000,
+            IRRITATE_PATS:3, IRRITATE_WINDOW_MS:10000, EAR_FLAT:60, TAIL_LASH:35, LASH_MS:120, IRRITATED_MS:1500 };
 const SPARK = [[77,84,4],[70,97,2],[157,84,4],[150,97,2]];
 const CROP = [45, 285, 290, 290];            // same crop as face/make_faces_h.py
 
@@ -60,7 +61,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const rand = (a, b) => a + Math.floor(Math.random() * (b - a));
 
 const img = {};
-for (const n of ['idle', 'blink', 'talk', 'lick']) { img[n] = new Image(); img[n].src = `../face/art/bob-${n}.png`; }
+for (const n of ['idle', 'blink', 'talk', 'lick', 'irritated']) { img[n] = new Image(); img[n].src = `../face/art/bob-${n}.png`; }
 const meows = [1, 2, 3].map(k => new Audio(`../face/meow${k}.wav`));
 
 let asleep = false, busy = false, lastActivity = performance.now(), micQuietUntil = 0, audioCtx = null;
@@ -74,7 +75,7 @@ function draw(face, dx = 0, sparkle = false) {
   if (asleep) { ctx.fillStyle = '#848484'; ctx.font = '600 28px Segoe UI, sans-serif'; ctx.fillText('z', 185, 52); }
 }
 const open = () => draw('idle', 0, true);
-const ears = deg => { $('earL').style.transform = `rotate(${deg}deg)`; $('earR').style.transform = `rotate(${deg}deg)`; };
+const ears = (l, r = l) => { $('earL').style.transform = `rotate(${l}deg)`; $('earR').style.transform = `rotate(${r}deg)`; };
 const tail = deg => { $('tail').style.transform = `rotate(${deg}deg)`; };
 
 function purr(on, hz) {
@@ -108,21 +109,54 @@ async function rub() {
 
 async function flick() { tail(-C.TAIL_FLICK); await sleep(180); tail(C.TAIL_FLICK); await sleep(180); tail(0); }
 
-async function wake() {
-  if (asleep) { asleep = false; draw('half'); await sleep(300); open(); }
+// too many pats: ears flat to the side, tail lashes, grumpy face, then he calms down
+async function irritated() {
+  draw('irritated');
+  ears(-C.EAR_FLAT, C.EAR_FLAT);
+  for (let i = 0; i < 3; i++) { tail(-C.TAIL_LASH); await sleep(C.LASH_MS); tail(C.TAIL_LASH); await sleep(C.LASH_MS); }
+  await sleep(C.IRRITATED_MS);
+  ears(0); tail(0);
+  micQuietUntil = performance.now() + 600;
+  open();
+}
+
+// remember this pat; true if it's the IRRITATE_PATS-th one inside IRRITATE_WINDOW_MS
+let patTimes = [];   // newest first
+function tooManyPats() {
+  patTimes = [performance.now(), ...patTimes].slice(0, C.IRRITATE_PATS);
+  if (patTimes.length === C.IRRITATE_PATS && patTimes[0] - patTimes[C.IRRITATE_PATS - 1] <= C.IRRITATE_WINDOW_MS) {
+    patTimes = [];   // start counting again, next pat is happy
+    return true;
+  }
+  return false;
+}
+
+// face = what he shows while waking up (half-open for a pat, irritated for a clap)
+async function wake(face = 'half', ms = 300) {
+  if (asleep) { asleep = false; draw(face); await sleep(ms); open(); }
   lastActivity = performance.now();
 }
 
 // Bob does one thing at a time, like the real firmware loop
 async function act(fn) { if (busy) return; busy = true; try { await fn(); } finally { busy = false; } }
 
-async function pat() { status('Purring.'); await act(async () => { await wake(); await rub(); }); status('He liked that.'); }
+async function pat() {
+  await act(async () => {
+    await wake();
+    if (tooManyPats()) { status('Too many pats. He is irritated.'); await irritated(); status('He calmed down.'); }
+    else { status('Purring.'); await rub(); status('He liked that.'); }
+  });
+}
 async function clap() {
   if (performance.now() < micQuietUntil) return;
   status('He heard you.');
   await act(async () => {
-    await wake(); await flick();
-    if (rand(0, C.CLAP_MEOW_CHANCE) === 0) await meow(rand(0, 3));
+    const wasAsleep = asleep;
+    await wake('irritated', C.IRRITATED_MS);       // clapped awake: grumpy, no meow
+    if (!wasAsleep) {
+      await flick();
+      if (rand(0, C.CLAP_MEOW_CHANCE) === 0) await meow(rand(0, 3));
+    }
     micQuietUntil = performance.now() + 400;
   });
 }

@@ -10,12 +10,15 @@
 //   - pat his head -> he rubs into your hand like a real cat: eyes half-shut,
 //     face leans side to side, ears tilt with the rub, tail sways, purr
 //   - after the pat he licks his paw (lick face) like a cat grooming
+//   - pat him 3 times in 10 s -> the 3rd pat annoys him: irritated face, ears flat,
+//     tail lashes, then he calms down and the next pat is happy again
 //   - loud clap -> he looks up, flicks his tail, and sometimes meows
+//   - clap while he's asleep -> he wakes up irritated (no meow)
 //   - he meows hello on power-up, and now and then on his own (talk face while he meows)
 //   - nobody around for a while -> he falls asleep
 
 #include <Arduino_GFX_Library.h>
-#include "bob_faces.h"   // face_idle, face_blink, face_half, face_talk, face_lick (240x240)
+#include "bob_faces.h"   // face_idle, face_blink, face_half, face_talk, face_lick, face_irritated (240x240)
 #include "bob_meows.h"   // MEOWS[3], MEOW_LEN[3], MEOW_RATE: made by face/make_meows_h.py
 
 // ---------- pins (from the schematic) ----------
@@ -41,6 +44,12 @@ const int LICK_MS = 700;          // how long he licks his paw after a pat
 const int CLAP_MEOW_CHANCE = 3;   // 1 in 3 claps get a meow back
 const bool CHATTY = true;         // meows on his own now and then while awake
 const unsigned long CHAT_MIN_MS = 45000, CHAT_MAX_MS = 120000;  // gap between his own meows
+const int IRRITATE_PATS = 3;      // this many pats...
+const unsigned long IRRITATE_WINDOW_MS = 10000;  // ...inside this time and the last one annoys him
+const int EAR_FLAT = 60;          // ears go flat to the side when he's irritated (degrees)
+const int TAIL_LASH = 35;         // how far the tail lashes when he's irritated
+const int LASH_MS = 120;          // speed of each lash (one side to the other)
+const int IRRITATED_MS = 1500;    // how long he stays irritated
 // sparkle spots (x, y, radius) on the 240x240 face, nudge if they miss the pupils
 const int SPARK[4][3] = { {77, 84, 4}, {70, 97, 2}, {157, 84, 4}, {150, 97, 2} };
 
@@ -120,7 +129,39 @@ void flickTail() {
   tail.write(TAIL_REST);
 }
 
-void wake() { if (asleep) { asleep = false; showFace(face_half); delay(300); open(); } lastActivity = millis(); }
+// too many pats: ears flat, tail lashes, grumpy face, then he calms down
+void irritated() {
+  showFace(face_irritated);
+  earL.write(EAR_REST - EAR_FLAT); earR.write(EAR_REST - EAR_FLAT);
+  for (int i = 0; i < 3; i++) {                            // three quick lashes
+    tail.write(TAIL_REST - TAIL_LASH); delay(LASH_MS);
+    tail.write(TAIL_REST + TAIL_LASH); delay(LASH_MS);
+  }
+  delay(IRRITATED_MS);
+  earL.write(EAR_REST); earR.write(EAR_REST); tail.write(TAIL_REST);
+  micQuietUntil = millis() + 600;
+  open();
+}
+
+// remember this pat; true if it's the IRRITATE_PATS-th one inside IRRITATE_WINDOW_MS
+unsigned long patTimes[IRRITATE_PATS];   // newest first
+int patCount = 0;
+bool tooManyPats() {
+  for (int i = IRRITATE_PATS - 1; i > 0; i--) patTimes[i] = patTimes[i - 1];
+  patTimes[0] = millis();
+  if (patCount < IRRITATE_PATS) patCount++;
+  if (patCount == IRRITATE_PATS && patTimes[0] - patTimes[IRRITATE_PATS - 1] <= IRRITATE_WINDOW_MS) {
+    patCount = 0;                                           // start counting again, next pat is happy
+    return true;
+  }
+  return false;
+}
+
+// face = what he shows while waking up (half-open for a pat, irritated for a clap)
+void wake(const uint16_t *face = face_half, int ms = 300) {
+  if (asleep) { asleep = false; showFace(face); delay(ms); open(); }
+  lastActivity = millis();
+}
 
 void setup() {
   Serial.begin(115200);
@@ -143,12 +184,19 @@ void setup() {
 void loop() {
   unsigned long now = millis();
 
-  if (touchRead(PIN_TOUCH) > TOUCH_THRESHOLD) { wake(); rubIntoHand(); }   // pat on the head
+  if (touchRead(PIN_TOUCH) > TOUCH_THRESHOLD) {             // pat on the head
+    wake();
+    if (tooManyPats()) irritated(); else rubIntoHand();
+  }
 
   int a = analogRead(PIN_MIC), b = analogRead(PIN_MIC);    // crude clap check: big jump
   if (millis() > micQuietUntil && (abs(a - b) > CLAP_LEVEL || a > 3900)) {
-    wake(); flickTail();
-    if (random(CLAP_MEOW_CHANCE) == 0) meow(random(3));
+    bool wasAsleep = asleep;
+    wake(face_irritated, IRRITATED_MS);                      // clapped awake: grumpy, no meow
+    if (!wasAsleep) {
+      flickTail();
+      if (random(CLAP_MEOW_CHANCE) == 0) meow(random(3));
+    }
     micQuietUntil = millis() + 400;
   }
 

@@ -27,7 +27,7 @@ def rgb565(im):
     return out
 
 
-frames = {n: frame(n) for n in ("idle", "blink", "talk", "lick")}
+frames = {n: frame(n) for n in ("idle", "blink", "talk", "lick", "irritated")}
 frames["half"] = Image.blend(frames["idle"], frames["blink"], 0.5)   # half-shut eyes, like face.py
 
 with open(OUT, "w") as f:
