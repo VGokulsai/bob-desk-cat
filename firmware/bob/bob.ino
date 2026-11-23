@@ -16,6 +16,11 @@
 //   - clap while he's asleep -> he wakes up irritated (no meow)
 //   - he meows hello on power-up, and now and then on his own (talk face while he meows)
 //   - nobody around for a while -> he falls asleep
+//   - he has a mood (0-100, starts at 60): happy pats raise it; too many pats, a clap
+//     that wakes him, and being left alone (awake) lower it. Three bands:
+//       HAPPY (70+)  : sparkly eyes, slow lazy blinks, a little purr on his own now and then
+//       OK (30-69)   : his normal self
+//       LONELY (<30) : half-shut eyes, no sparkles, ears droop, meows for attention a lot more
 
 #include <Arduino_GFX_Library.h>
 #include "bob_faces.h"   // face_idle, face_blink, face_half, face_talk, face_lick, face_irritated (240x240)
@@ -50,6 +55,20 @@ const int EAR_FLAT = 60;          // ears go flat to the side when he's irritate
 const int TAIL_LASH = 35;         // how far the tail lashes when he's irritated
 const int LASH_MS = 120;          // speed of each lash (one side to the other)
 const int IRRITATED_MS = 1500;    // how long he stays irritated
+const int BLINK_MIN_MS = 2500, BLINK_MAX_MS = 6000;   // gap between blinks
+// mood: 0 = very lonely, 100 = very happy
+const int MOOD_START = 60;        // mood on power-up
+const int MOOD_PAT = 12;          // a happy pat raises it this much
+const int MOOD_ANNOYED = 15;      // too many pats lowers it this much
+const int MOOD_WOKEN = 10;        // a clap that wakes him from a nap lowers it this much
+const unsigned long MOOD_DECAY_MS = 8000;   // awake and alone: mood drops 1 every this long
+const int MOOD_HAPPY = 70;        // this or more = HAPPY
+const int MOOD_LONELY = 30;       // less than this = LONELY (in between = OK)
+const int HAPPY_BLINK_MIN_MS = 4000, HAPPY_BLINK_MAX_MS = 8000;  // happy: slow, relaxed blinks
+const unsigned long HAPPY_PURR_MIN_MS = 30000, HAPPY_PURR_MAX_MS = 60000;  // happy: gap between purrs on his own
+const int HAPPY_PURR_TONE_MS = 150;  // each of the 3 purr tones
+const unsigned long LONELY_CHAT_MIN_MS = 15000, LONELY_CHAT_MAX_MS = 30000;  // lonely: meows for attention
+const int EAR_DROOP = 20;         // lonely: ears droop this much at rest (degrees)
 // sparkle spots (x, y, radius) on the 240x240 face, nudge if they miss the pupils
 const int SPARK[4][3] = { {77, 84, 4}, {70, 97, 2}, {157, 84, 4}, {150, 97, 2} };
 
@@ -74,6 +93,19 @@ Servo earL, earR, tail;
 unsigned long lastActivity = 0, nextBlink = 0, nextChat = 0;
 unsigned long micQuietUntil = 0;   // ignore the mic right after Bob makes a sound, or he hears himself as a clap
 bool asleep = false;
+const int BAND_LONELY = 0, BAND_OK = 1, BAND_HAPPY = 2;   // plain ints: Arduino auto-prototypes trip on enum return types
+int mood = MOOD_START;
+int band = BAND_OK;                   // set from mood in setup()
+unsigned long lastDecay = 0, nextPurr = 0;
+
+int bandOf(int m) { return m >= MOOD_HAPPY ? BAND_HAPPY : (m < MOOD_LONELY ? BAND_LONELY : BAND_OK); }
+int earRest() { return band == BAND_LONELY ? EAR_REST - EAR_DROOP : EAR_REST; }
+unsigned long chatGap() {
+  return band == BAND_LONELY ? random(LONELY_CHAT_MIN_MS, LONELY_CHAT_MAX_MS) : random(CHAT_MIN_MS, CHAT_MAX_MS);
+}
+unsigned long blinkGap() {
+  return band == BAND_HAPPY ? random(HAPPY_BLINK_MIN_MS, HAPPY_BLINK_MAX_MS) : random(BLINK_MIN_MS, BLINK_MAX_MS);
+}
 
 // draw one face picture, shifted dx pixels left/right (for the rub)
 void showFace(const uint16_t *img, int dx = 0, bool sparkle = false) {
@@ -84,9 +116,27 @@ void showFace(const uint16_t *img, int dx = 0, bool sparkle = false) {
   if (asleep) { gfx->setTextColor(0x8410); gfx->setTextSize(3); gfx->setCursor(185, 30); gfx->print("z"); }
 }
 
-void open()  { showFace(face_idle, 0, true); }
+// resting face for his mood: lonely = half-shut, no sparkles
+void open() { if (band == BAND_LONELY) showFace(face_half); else showFace(face_idle, 0, true); }
+void restEars() { earL.write(earRest()); earR.write(earRest()); }
+
+// change mood; if the band changes, show the new resting face and ears (not while asleep)
+void changeMood(int delta) {
+  mood = constrain(mood + delta, 0, 100);
+  int nb = bandOf(mood);
+  if (nb == band) return;
+  band = nb;
+  nextChat = millis() + chatGap();                          // lonely meows sooner, so reschedule
+  if (!asleep) { open(); restEars(); }
+}
 
 void tone_ms(int freq, int ms) { ledcWriteTone(PIN_SPEAKER, freq); delay(ms); ledcWriteTone(PIN_SPEAKER, 0); }
+
+// happy: a short purr on his own
+void purrBurst() {
+  for (int i = 0; i < 3; i++) tone_ms((i % 2) ? PURR_HIGH : PURR_LOW, HAPPY_PURR_TONE_MS);
+  micQuietUntil = millis() + 600;
+}
 
 // play one recorded meow: 8-bit samples as PWM duty on a fast carrier, with the talk face
 void meow(int which) {
@@ -117,7 +167,7 @@ void rubIntoHand() {
     delay(RUB_STEP_MS);
   }
   ledcWriteTone(PIN_SPEAKER, 0);
-  earL.write(EAR_REST); earR.write(EAR_REST); tail.write(TAIL_REST);
+  restEars(); tail.write(TAIL_REST);
   showFace(face_lick); delay(LICK_MS);                      // happy cat: licks his paw after the pat
   micQuietUntil = millis() + 600;
   open();
@@ -138,7 +188,7 @@ void irritated() {
     tail.write(TAIL_REST + TAIL_LASH); delay(LASH_MS);
   }
   delay(IRRITATED_MS);
-  earL.write(EAR_REST); earR.write(EAR_REST); tail.write(TAIL_REST);
+  restEars(); tail.write(TAIL_REST);
   micQuietUntil = millis() + 600;
   open();
 }
@@ -159,8 +209,8 @@ bool tooManyPats() {
 
 // face = what he shows while waking up (half-open for a pat, irritated for a clap)
 void wake(const uint16_t *face = face_half, int ms = 300) {
-  if (asleep) { asleep = false; showFace(face); delay(ms); open(); }
-  lastActivity = millis();
+  if (asleep) { asleep = false; showFace(face); delay(ms); open(); restEars(); }
+  lastActivity = lastDecay = millis();                     // someone is here: loneliness clock restarts
 }
 
 void setup() {
@@ -168,7 +218,8 @@ void setup() {
   gfx->begin();
   ledcAttach(PIN_SPEAKER, 2000, 8);
   earL.attach(PIN_EAR_L); earR.attach(PIN_EAR_R); tail.attach(PIN_TAIL);
-  earL.write(EAR_REST); earR.write(EAR_REST); tail.write(TAIL_REST);
+  band = bandOf(mood);
+  restEars(); tail.write(TAIL_REST);
 
   int base = touchRead(PIN_TOUCH);          // reading with no finger
   TOUCH_THRESHOLD = base + base / 5;        // ESP32-S3 value rises when touched; tune if needed
@@ -177,8 +228,9 @@ void setup() {
   open();
   delay(400);
   meow(0);                                  // hello
-  lastActivity = millis(); nextBlink = millis() + 3000;
-  nextChat = millis() + random(CHAT_MIN_MS, CHAT_MAX_MS);
+  lastActivity = lastDecay = millis(); nextBlink = millis() + 3000;
+  nextChat = millis() + chatGap();
+  nextPurr = millis() + random(HAPPY_PURR_MIN_MS, HAPPY_PURR_MAX_MS);
 }
 
 void loop() {
@@ -186,12 +238,14 @@ void loop() {
 
   if (touchRead(PIN_TOUCH) > TOUCH_THRESHOLD) {             // pat on the head
     wake();
-    if (tooManyPats()) irritated(); else rubIntoHand();
+    if (tooManyPats()) { changeMood(-MOOD_ANNOYED); irritated(); }
+    else { changeMood(MOOD_PAT); rubIntoHand(); }
   }
 
   int a = analogRead(PIN_MIC), b = analogRead(PIN_MIC);    // crude clap check: big jump
   if (millis() > micQuietUntil && (abs(a - b) > CLAP_LEVEL || a > 3900)) {
     bool wasAsleep = asleep;
+    if (wasAsleep) changeMood(-MOOD_WOKEN);                 // woken by a clap: grumpier
     wake(face_irritated, IRRITATED_MS);                      // clapped awake: grumpy, no meow
     if (!wasAsleep) {
       flickTail();
@@ -202,13 +256,23 @@ void loop() {
 
   if (CHATTY && !asleep && millis() > nextChat) {           // a little meow on his own
     meow(random(3));
-    nextChat = millis() + random(CHAT_MIN_MS, CHAT_MAX_MS);
+    nextChat = millis() + chatGap();
+  }
+
+  if (!asleep && millis() > nextPurr) {                     // happy: a little purr on his own
+    if (band == BAND_HAPPY) purrBurst();
+    nextPurr = millis() + random(HAPPY_PURR_MIN_MS, HAPPY_PURR_MAX_MS);
+  }
+
+  if (!asleep && millis() - lastDecay >= MOOD_DECAY_MS) {  // alone and awake: a bit lonelier
+    lastDecay = millis();
+    changeMood(-1);
   }
 
   if (!asleep && now > nextBlink) {                        // blink: half, shut, half, open
     showFace(face_half); delay(40); showFace(face_blink); delay(90);
     showFace(face_half); delay(40); open();
-    nextBlink = now + random(2500, 6000);
+    nextBlink = now + blinkGap();
   }
 
   if (!asleep && now - lastActivity > SLEEP_AFTER_MS) {    // nap time

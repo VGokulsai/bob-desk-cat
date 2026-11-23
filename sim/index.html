@@ -26,6 +26,7 @@
            background:transparent; color:var(--ink); cursor:pointer; }
   button[aria-pressed="true"] { background:var(--ink); color:var(--bg); }
   #status { margin-top:16px; min-height:20px; font-size:13px; color:var(--soft); }
+  #mood { margin-top:4px; font-size:12px; color:var(--soft); font-variant-numeric:tabular-nums; }
   @media (prefers-reduced-motion: reduce) { .ear, .tail { transition:none; } }
 </style>
 </head>
@@ -42,15 +43,21 @@
     <button id="clapBtn">Clap (space)</button>
     <button id="micBtn" aria-pressed="false">Use my mic</button>
     <button id="napBtn">Skip to nap</button>
+    <button id="skipBtn">Skip 1 min</button>
   </div>
   <div id="status">Click anywhere to wake the sound, then pat him.</div>
+  <div id="mood" aria-live="polite"></div>
 </main>
 <script>
 // Same settings as firmware/bob/bob.ino, so this behaves like the real Bob.
 const C = { EAR_TILT:25, TAIL_SWAY:45, TAIL_FLICK:40, RUB_SHIFT:8, RUB_STEPS:6, RUB_STEP_MS:280,
             PURR_LOW:85, PURR_HIGH:100, SLEEP_AFTER_MS:120000, LICK_MS:700, CLAP_MEOW_CHANCE:3,
             CHAT_MIN_MS:45000, CHAT_MAX_MS:120000,
-            IRRITATE_PATS:3, IRRITATE_WINDOW_MS:10000, EAR_FLAT:60, TAIL_LASH:35, LASH_MS:120, IRRITATED_MS:1500 };
+            IRRITATE_PATS:3, IRRITATE_WINDOW_MS:10000, EAR_FLAT:60, TAIL_LASH:35, LASH_MS:120, IRRITATED_MS:1500,
+            BLINK_MIN_MS:2500, BLINK_MAX_MS:6000,
+            MOOD_START:60, MOOD_PAT:12, MOOD_ANNOYED:15, MOOD_WOKEN:10, MOOD_DECAY_MS:8000, MOOD_HAPPY:70, MOOD_LONELY:30,
+            HAPPY_BLINK_MIN_MS:4000, HAPPY_BLINK_MAX_MS:8000, HAPPY_PURR_MIN_MS:30000, HAPPY_PURR_MAX_MS:60000, HAPPY_PURR_TONE_MS:150,
+            LONELY_CHAT_MIN_MS:15000, LONELY_CHAT_MAX_MS:30000, EAR_DROOP:20 };
 const SPARK = [[77,84,4],[70,97,2],[157,84,4],[150,97,2]];
 const CROP = [45, 285, 290, 290];            // same crop as face/make_faces_h.py
 
@@ -65,7 +72,13 @@ for (const n of ['idle', 'blink', 'talk', 'lick', 'irritated']) { img[n] = new I
 const meows = [1, 2, 3].map(k => new Audio(`../face/meow${k}.wav`));
 
 let asleep = false, busy = false, lastActivity = performance.now(), micQuietUntil = 0, audioCtx = null;
-let nextChat = performance.now() + rand(C.CHAT_MIN_MS, C.CHAT_MAX_MS);
+let mood = C.MOOD_START, lastDecay = performance.now();
+const bandOf = m => m >= C.MOOD_HAPPY ? 'happy' : m < C.MOOD_LONELY ? 'lonely' : 'ok';
+let band = bandOf(mood);
+const chatGap = () => band === 'lonely' ? rand(C.LONELY_CHAT_MIN_MS, C.LONELY_CHAT_MAX_MS) : rand(C.CHAT_MIN_MS, C.CHAT_MAX_MS);
+const blinkGap = () => band === 'happy' ? rand(C.HAPPY_BLINK_MIN_MS, C.HAPPY_BLINK_MAX_MS) : rand(C.BLINK_MIN_MS, C.BLINK_MAX_MS);
+let nextChat = performance.now() + chatGap();
+let nextPurr = performance.now() + rand(C.HAPPY_PURR_MIN_MS, C.HAPPY_PURR_MAX_MS);
 
 function draw(face, dx = 0, sparkle = false) {
   ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, 240, 240);
@@ -74,8 +87,22 @@ function draw(face, dx = 0, sparkle = false) {
   if (sparkle) { ctx.fillStyle = '#fff'; for (const [x, y, r] of SPARK) { ctx.beginPath(); ctx.arc(x + dx, y, r, 0, 7); ctx.fill(); } }
   if (asleep) { ctx.fillStyle = '#848484'; ctx.font = '600 28px Segoe UI, sans-serif'; ctx.fillText('z', 185, 52); }
 }
-const open = () => draw('idle', 0, true);
+// resting face for his mood: lonely = half-shut, no sparkles
+const open = () => band === 'lonely' ? draw('half') : draw('idle', 0, true);
 const ears = (l, r = l) => { $('earL').style.transform = `rotate(${l}deg)`; $('earR').style.transform = `rotate(${r}deg)`; };
+const restEars = () => band === 'lonely' ? ears(-C.EAR_DROOP, C.EAR_DROOP) : ears(0);   // lonely: droop outward
+const showMood = () => $('mood').textContent = `mood ${mood} · ${band}`;
+// change mood; if the band changes, show the new resting face and ears (not while asleep or mid-sequence)
+function setMood(delta) {
+  mood = Math.max(0, Math.min(100, mood + delta));
+  const nb = bandOf(mood);
+  if (nb !== band) {
+    band = nb;
+    nextChat = performance.now() + chatGap();          // lonely meows sooner, so reschedule
+    if (!asleep && !busy) { open(); restEars(); }
+  }
+  showMood();
+}
 const tail = deg => { $('tail').style.transform = `rotate(${deg}deg)`; };
 
 function purr(on, hz) {
@@ -101,10 +128,16 @@ async function rub() {
     purr(true, i % 2 ? C.PURR_HIGH : C.PURR_LOW);
     await sleep(C.RUB_STEP_MS);
   }
-  purr(false); ears(0); tail(0);
+  purr(false); restEars(); tail(0);
   draw('lick'); await sleep(C.LICK_MS);
   micQuietUntil = performance.now() + 600;
   open();
+}
+
+async function purrBurst() {
+  for (let i = 0; i < 3; i++) { purr(true, i % 2 ? C.PURR_HIGH : C.PURR_LOW); await sleep(C.HAPPY_PURR_TONE_MS); }
+  purr(false);
+  micQuietUntil = performance.now() + 600;
 }
 
 async function flick() { tail(-C.TAIL_FLICK); await sleep(180); tail(C.TAIL_FLICK); await sleep(180); tail(0); }
@@ -115,7 +148,7 @@ async function irritated() {
   ears(-C.EAR_FLAT, C.EAR_FLAT);
   for (let i = 0; i < 3; i++) { tail(-C.TAIL_LASH); await sleep(C.LASH_MS); tail(C.TAIL_LASH); await sleep(C.LASH_MS); }
   await sleep(C.IRRITATED_MS);
-  ears(0); tail(0);
+  restEars(); tail(0);
   micQuietUntil = performance.now() + 600;
   open();
 }
@@ -133,8 +166,8 @@ function tooManyPats() {
 
 // face = what he shows while waking up (half-open for a pat, irritated for a clap)
 async function wake(face = 'half', ms = 300) {
-  if (asleep) { asleep = false; draw(face); await sleep(ms); open(); }
-  lastActivity = performance.now();
+  if (asleep) { asleep = false; draw(face); await sleep(ms); open(); restEars(); }
+  lastActivity = lastDecay = performance.now();   // someone is here: loneliness clock restarts
 }
 
 // Bob does one thing at a time, like the real firmware loop
@@ -143,8 +176,8 @@ async function act(fn) { if (busy) return; busy = true; try { await fn(); } fina
 async function pat() {
   await act(async () => {
     await wake();
-    if (tooManyPats()) { status('Too many pats. He is irritated.'); await irritated(); status('He calmed down.'); }
-    else { status('Purring.'); await rub(); status('He liked that.'); }
+    if (tooManyPats()) { setMood(-C.MOOD_ANNOYED); status('Too many pats. He is irritated.'); await irritated(); status('He calmed down.'); }
+    else { setMood(C.MOOD_PAT); status('Purring.'); await rub(); status('He liked that.'); }
   });
 }
 async function clap() {
@@ -152,6 +185,7 @@ async function clap() {
   status('He heard you.');
   await act(async () => {
     const wasAsleep = asleep;
+    if (wasAsleep) setMood(-C.MOOD_WOKEN);          // woken by a clap: grumpier
     await wake('irritated', C.IRRITATED_MS);       // clapped awake: grumpy, no meow
     if (!wasAsleep) {
       await flick();
@@ -163,7 +197,7 @@ async function clap() {
 
 async function blinkLoop() {
   while (true) {
-    await sleep(rand(2500, 6000));
+    await sleep(blinkGap());
     if (asleep || busy) continue;
     await act(async () => { draw('half'); await sleep(40); draw('blink'); await sleep(90); draw('half'); await sleep(40); open(); });
   }
@@ -172,7 +206,12 @@ async function blinkLoop() {
 setInterval(() => {
   const now = performance.now();
   if (!asleep && !busy && now - lastActivity > C.SLEEP_AFTER_MS) { asleep = true; draw('blink'); status('Napping. Pat or clap to wake him.'); }
-  if (!asleep && !busy && now > nextChat) { act(() => meow(rand(0, 3))); nextChat = now + rand(C.CHAT_MIN_MS, C.CHAT_MAX_MS); }
+  if (!asleep && !busy && now > nextChat) { act(() => meow(rand(0, 3))); nextChat = now + chatGap(); }
+  if (!asleep && !busy && now > nextPurr) {           // happy: a little purr on his own
+    if (band === 'happy') act(purrBurst);
+    nextPurr = now + rand(C.HAPPY_PURR_MIN_MS, C.HAPPY_PURR_MAX_MS);
+  }
+  if (!asleep && !busy && now - lastDecay >= C.MOOD_DECAY_MS) { lastDecay = now; setMood(-1); }   // alone and awake: lonelier
 }, 250);
 
 async function startMic() {
@@ -200,13 +239,16 @@ $('head').addEventListener('pointerdown', e => { if (started) pat(); });
 $('clapBtn').addEventListener('click', clap);
 document.addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); clap(); } });
 $('napBtn').addEventListener('click', () => { lastActivity -= C.SLEEP_AFTER_MS; });
+// demo only: a minute of loneliness at once. Does not move lastActivity, or two skips would put him to sleep.
+$('skipBtn').addEventListener('click', () => { if (!asleep) setMood(-Math.floor(60000 / C.MOOD_DECAY_MS)); });
 $('micBtn').addEventListener('click', async e => {
   if (e.currentTarget.getAttribute('aria-pressed') === 'true') return;
   try { await startMic(); e.currentTarget.setAttribute('aria-pressed', 'true'); status('Listening. Clap near your mic.'); }
   catch { status('Mic blocked, so use the Clap button.'); }
 });
 
-img.idle.onload = open;
+img.idle.onload = () => { open(); restEars(); };
+showMood();
 blinkLoop();
 </script>
 </body>
