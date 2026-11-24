@@ -17,10 +17,12 @@
 //   - he meows hello on power-up, and now and then on his own (talk face while he meows)
 //   - nobody around for a while -> he falls asleep
 //   - he has a mood (0-100, starts at 60): happy pats raise it; too many pats, a clap
-//     that wakes him, and being left alone (awake) lower it. Three bands:
+//     that wakes him, and being left alone lower it (1 point every 8 s awake, and
+//     slowly while he naps: 1 point a minute, a lonely nap). Three bands:
 //       HAPPY (70+)  : sparkly eyes, slow lazy blinks, a little purr on his own now and then
 //       OK (30-69)   : his normal self
 //       LONELY (<30) : half-shut eyes, no sparkles, ears droop, meows for attention a lot more
+//     he wakes up showing whatever band he's in now, so a long-neglected Bob wakes up lonely
 
 #include <Arduino_GFX_Library.h>
 #include "bob_faces.h"   // face_idle, face_blink, face_half, face_talk, face_lick, face_irritated (240x240)
@@ -62,6 +64,7 @@ const int MOOD_PAT = 12;          // a happy pat raises it this much
 const int MOOD_ANNOYED = 15;      // too many pats lowers it this much
 const int MOOD_WOKEN = 10;        // a clap that wakes him from a nap lowers it this much
 const unsigned long MOOD_DECAY_MS = 8000;   // awake and alone: mood drops 1 every this long
+const unsigned long MOOD_SLEEP_DECAY_MS = 60000;  // asleep: mood drops 1 every this long (a lonely nap)
 const int MOOD_HAPPY = 70;        // this or more = HAPPY
 const int MOOD_LONELY = 30;       // less than this = LONELY (in between = OK)
 const int HAPPY_BLINK_MIN_MS = 4000, HAPPY_BLINK_MAX_MS = 8000;  // happy: slow, relaxed blinks
@@ -264,7 +267,7 @@ void loop() {
     nextPurr = millis() + random(HAPPY_PURR_MIN_MS, HAPPY_PURR_MAX_MS);
   }
 
-  if (!asleep && millis() - lastDecay >= MOOD_DECAY_MS) {  // alone and awake: a bit lonelier
+  if (millis() - lastDecay >= (asleep ? MOOD_SLEEP_DECAY_MS : MOOD_DECAY_MS)) {  // alone: a bit lonelier (slower while napping)
     lastDecay = millis();
     changeMood(-1);
   }
@@ -277,6 +280,7 @@ void loop() {
 
   if (!asleep && now - lastActivity > SLEEP_AFTER_MS) {    // nap time
     asleep = true; showFace(face_blink);
+    lastDecay = millis();                                  // first nap point comes a full minute in
   }
   delay(20);
 }

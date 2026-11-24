@@ -55,7 +55,7 @@ const C = { EAR_TILT:25, TAIL_SWAY:45, TAIL_FLICK:40, RUB_SHIFT:8, RUB_STEPS:6, 
             CHAT_MIN_MS:45000, CHAT_MAX_MS:120000,
             IRRITATE_PATS:3, IRRITATE_WINDOW_MS:10000, EAR_FLAT:60, TAIL_LASH:35, LASH_MS:120, IRRITATED_MS:1500,
             BLINK_MIN_MS:2500, BLINK_MAX_MS:6000,
-            MOOD_START:60, MOOD_PAT:12, MOOD_ANNOYED:15, MOOD_WOKEN:10, MOOD_DECAY_MS:8000, MOOD_HAPPY:70, MOOD_LONELY:30,
+            MOOD_START:60, MOOD_PAT:12, MOOD_ANNOYED:15, MOOD_WOKEN:10, MOOD_DECAY_MS:8000, MOOD_SLEEP_DECAY_MS:60000, MOOD_HAPPY:70, MOOD_LONELY:30,
             HAPPY_BLINK_MIN_MS:4000, HAPPY_BLINK_MAX_MS:8000, HAPPY_PURR_MIN_MS:30000, HAPPY_PURR_MAX_MS:60000, HAPPY_PURR_TONE_MS:150,
             LONELY_CHAT_MIN_MS:15000, LONELY_CHAT_MAX_MS:30000, EAR_DROOP:20 };
 const SPARK = [[77,84,4],[70,97,2],[157,84,4],[150,97,2]];
@@ -205,13 +205,13 @@ async function blinkLoop() {
 
 setInterval(() => {
   const now = performance.now();
-  if (!asleep && !busy && now - lastActivity > C.SLEEP_AFTER_MS) { asleep = true; draw('blink'); status('Napping. Pat or clap to wake him.'); }
+  if (!asleep && !busy && now - lastActivity > C.SLEEP_AFTER_MS) { asleep = true; draw('blink'); lastDecay = now; status('Napping. Pat or clap to wake him.'); }
   if (!asleep && !busy && now > nextChat) { act(() => meow(rand(0, 3))); nextChat = now + chatGap(); }
   if (!asleep && !busy && now > nextPurr) {           // happy: a little purr on his own
     if (band === 'happy') act(purrBurst);
     nextPurr = now + rand(C.HAPPY_PURR_MIN_MS, C.HAPPY_PURR_MAX_MS);
   }
-  if (!asleep && !busy && now - lastDecay >= C.MOOD_DECAY_MS) { lastDecay = now; setMood(-1); }   // alone and awake: lonelier
+  if (!busy && now - lastDecay >= (asleep ? C.MOOD_SLEEP_DECAY_MS : C.MOOD_DECAY_MS)) { lastDecay = now; setMood(-1); }   // alone: lonelier (slower while napping)
 }, 250);
 
 async function startMic() {
@@ -239,8 +239,8 @@ $('head').addEventListener('pointerdown', e => { if (started) pat(); });
 $('clapBtn').addEventListener('click', clap);
 document.addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); clap(); } });
 $('napBtn').addEventListener('click', () => { lastActivity -= C.SLEEP_AFTER_MS; });
-// demo only: a minute of loneliness at once. Does not move lastActivity, or two skips would put him to sleep.
-$('skipBtn').addEventListener('click', () => { if (!asleep) setMood(-Math.floor(60000 / C.MOOD_DECAY_MS)); });
+// demo only: a minute of loneliness at once (awake or napping). Does not move lastActivity, or two skips would put him to sleep.
+$('skipBtn').addEventListener('click', () => setMood(-Math.floor(60000 / (asleep ? C.MOOD_SLEEP_DECAY_MS : C.MOOD_DECAY_MS))));
 $('micBtn').addEventListener('click', async e => {
   if (e.currentTarget.getAttribute('aria-pressed') === 'true') return;
   try { await startMic(); e.currentTarget.setAttribute('aria-pressed', 'true'); status('Listening. Clap near your mic.'); }
