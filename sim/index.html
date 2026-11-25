@@ -57,7 +57,10 @@ const C = { EAR_TILT:25, TAIL_SWAY:45, TAIL_FLICK:40, RUB_SHIFT:8, RUB_STEPS:6, 
             BLINK_MIN_MS:2500, BLINK_MAX_MS:6000,
             MOOD_START:60, MOOD_PAT:12, MOOD_ANNOYED:15, MOOD_WOKEN:10, MOOD_DECAY_MS:8000, MOOD_SLEEP_DECAY_MS:60000, MOOD_HAPPY:70, MOOD_LONELY:30,
             HAPPY_BLINK_MIN_MS:4000, HAPPY_BLINK_MAX_MS:8000, HAPPY_PURR_MIN_MS:30000, HAPPY_PURR_MAX_MS:60000, HAPPY_PURR_TONE_MS:150,
-            LONELY_CHAT_MIN_MS:15000, LONELY_CHAT_MAX_MS:30000, EAR_DROOP:20 };
+            LONELY_CHAT_MIN_MS:15000, LONELY_CHAT_MAX_MS:30000, EAR_DROOP:20,
+            EAR_YAWN:35, TAIL_STRETCH:50, YAWN_STEPS:[3, 6, 10, 14, 18], YAWN_STEP_MS:90,
+            MOUTH_X:111, MOUTH_Y:163, MOUTH_RX:15, MOUTH_RY:18, SMILE:[92, 150, 52, 14],
+            DREAM_MIN_MS:20000, DREAM_MAX_MS:60000, EAR_TWITCH:15, DREAM_TAIL_CHANCE:3, DREAM_TAIL:15 };
 const SPARK = [[77,84,4],[70,97,2],[157,84,4],[150,97,2]];
 const CROP = [45, 285, 290, 290];            // same crop as face/make_faces_h.py
 
@@ -70,6 +73,7 @@ const rand = (a, b) => a + Math.floor(Math.random() * (b - a));
 const img = {};
 for (const n of ['idle', 'blink', 'talk', 'lick', 'irritated']) { img[n] = new Image(); img[n].src = `../face/art/bob-${n}.png`; }
 const meows = [1, 2, 3].map(k => new Audio(`../face/meow${k}.wav`));
+const yawnSnd = new Audio('../face/yawn.wav');
 
 let asleep = false, busy = false, lastActivity = performance.now(), micQuietUntil = 0, audioCtx = null;
 let mood = C.MOOD_START, lastDecay = performance.now();
@@ -77,7 +81,7 @@ const bandOf = m => m >= C.MOOD_HAPPY ? 'happy' : m < C.MOOD_LONELY ? 'lonely' :
 let band = bandOf(mood);
 const chatGap = () => band === 'lonely' ? rand(C.LONELY_CHAT_MIN_MS, C.LONELY_CHAT_MAX_MS) : rand(C.CHAT_MIN_MS, C.CHAT_MAX_MS);
 const blinkGap = () => band === 'happy' ? rand(C.HAPPY_BLINK_MIN_MS, C.HAPPY_BLINK_MAX_MS) : rand(C.BLINK_MIN_MS, C.BLINK_MAX_MS);
-let nextChat = performance.now() + chatGap();
+let nextChat = performance.now() + chatGap(), nextDream = 0;
 let nextPurr = performance.now() + rand(C.HAPPY_PURR_MIN_MS, C.HAPPY_PURR_MAX_MS);
 
 function draw(face, dx = 0, sparkle = false) {
@@ -140,6 +144,42 @@ async function purrBurst() {
   micQuietUntil = performance.now() + 600;
 }
 
+// the yawn mouth, drawn over the eyes-shut face (same shapes as drawYawn in bob.ino)
+function drawYawn(ry) {
+  ctx.fillStyle = '#fff'; ctx.fillRect(...C.SMILE);                   // rub out his little smile
+  if (ry <= 0) return;
+  const rx = Math.max(3, Math.floor(C.MOUTH_RX * ry / C.MOUTH_RY));
+  const oval = (x, y, a, b) => { ctx.beginPath(); ctx.ellipse(x, y, a, b, 0, 0, 7); };
+  ctx.fillStyle = '#381c20'; oval(C.MOUTH_X, C.MOUTH_Y, rx, ry); ctx.fill();
+  if (ry >= 6) { ctx.fillStyle = '#e87888'; oval(C.MOUTH_X, C.MOUTH_Y + Math.floor(ry * 6 / 10), Math.floor(rx * 6 / 10), Math.floor(ry * 4 / 10)); ctx.fill(); }
+  ctx.strokeStyle = '#181818'; ctx.lineWidth = 2; oval(C.MOUTH_X, C.MOUTH_Y, rx - 0.5, ry - 0.5); ctx.stroke();
+}
+
+// gentle wake-up: a big yawn with a stretch (ears back, tail out)
+async function yawnAndStretch() {
+  const st = C.YAWN_STEPS, n = st.length;
+  draw('blink');
+  for (let i = 0; i < n; i++) {
+    drawYawn(st[i]);
+    ears(-C.EAR_YAWN * (i + 1) / n, C.EAR_YAWN * (i + 1) / n);
+    tail(C.TAIL_STRETCH * (i + 1) / n);
+    await sleep(C.YAWN_STEP_MS);
+  }
+  yawnSnd.currentTime = 0;
+  try { await yawnSnd.play(); await new Promise(r => yawnSnd.onended = r); } catch { await sleep(1500); }
+  micQuietUntil = performance.now() + 600;
+  for (let i = n - 2; i >= -1; i--) { draw('blink'); drawYawn(i >= 0 ? st[i] : 0); await sleep(C.YAWN_STEP_MS); }
+  restEars(); tail(0);
+}
+
+// asleep and dreaming: one ear twitches twice, sometimes the tail tip flicks
+async function dream() {
+  const left = Math.random() < 0.5, rest = band === 'lonely' ? C.EAR_DROOP : 0;
+  const ear = d => left ? $('earL').style.transform = `rotate(${-(rest + d)}deg)` : $('earR').style.transform = `rotate(${rest + d}deg)`;
+  for (let k = 0; k < 2; k++) { ear(C.EAR_TWITCH); await sleep(70); ear(0); await sleep(90); }
+  if (rand(0, C.DREAM_TAIL_CHANCE) === 0) { tail(C.DREAM_TAIL); await sleep(150); tail(0); }
+}
+
 async function flick() { tail(-C.TAIL_FLICK); await sleep(180); tail(C.TAIL_FLICK); await sleep(180); tail(0); }
 
 // too many pats: ears flat to the side, tail lashes, grumpy face, then he calms down
@@ -166,7 +206,11 @@ function tooManyPats() {
 
 // face = what he shows while waking up (half-open for a pat, irritated for a clap)
 async function wake(face = 'half', ms = 300) {
-  if (asleep) { asleep = false; draw(face); await sleep(ms); open(); restEars(); }
+  if (asleep) {
+    asleep = false;
+    if (face === 'half') { status('Waking up... big yawn.'); await yawnAndStretch(); }   // a pat wakes him gently
+    draw(face); await sleep(ms); open(); restEars();
+  }
   lastActivity = lastDecay = performance.now();   // someone is here: loneliness clock restarts
 }
 
@@ -205,7 +249,8 @@ async function blinkLoop() {
 
 setInterval(() => {
   const now = performance.now();
-  if (!asleep && !busy && now - lastActivity > C.SLEEP_AFTER_MS) { asleep = true; draw('blink'); lastDecay = now; status('Napping. Pat or clap to wake him.'); }
+  if (!asleep && !busy && now - lastActivity > C.SLEEP_AFTER_MS) { asleep = true; draw('blink'); lastDecay = now; nextDream = now + rand(C.DREAM_MIN_MS, C.DREAM_MAX_MS); status('Napping. Pat or clap to wake him.'); }
+  if (asleep && !busy && now > nextDream) { act(dream); nextDream = now + rand(C.DREAM_MIN_MS, C.DREAM_MAX_MS); }
   if (!asleep && !busy && now > nextChat) { act(() => meow(rand(0, 3))); nextChat = now + chatGap(); }
   if (!asleep && !busy && now > nextPurr) {           // happy: a little purr on his own
     if (band === 'happy') act(purrBurst);

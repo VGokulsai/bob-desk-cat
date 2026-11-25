@@ -16,6 +16,9 @@
 //   - clap while he's asleep -> he wakes up irritated (no meow)
 //   - he meows hello on power-up, and now and then on his own (talk face while he meows)
 //   - nobody around for a while -> he falls asleep
+//   - asleep, he dreams: now and then an ear twitches, sometimes the tip of his tail
+//   - a pat wakes him gently: a big yawn (eyes shut, mouth opens wide, yawn sound),
+//     ears lean back, tail stretches out, then he blinks awake (a clap still wakes him grumpy)
 //   - he has a mood (0-100, starts at 60): happy pats raise it; too many pats, a clap
 //     that wakes him, and being left alone lower it (1 point every 8 s awake, and
 //     slowly while he naps: 1 point a minute, a lonely nap). Three bands:
@@ -26,7 +29,7 @@
 
 #include <Arduino_GFX_Library.h>
 #include "bob_faces.h"   // face_idle, face_blink, face_half, face_talk, face_lick, face_irritated (240x240)
-#include "bob_meows.h"   // MEOWS[3], MEOW_LEN[3], MEOW_RATE: made by face/make_meows_h.py
+#include "bob_meows.h"   // MEOWS[3], MEOW_LEN[3], MEOW_RATE, yawn_snd, YAWN_LEN: made by face/make_meows_h.py
 
 // ---------- pins (from the schematic) ----------
 const int PIN_SCK = 12, PIN_MOSI = 11, PIN_CS = 10, PIN_DC = 13, PIN_RST = 14;
@@ -72,6 +75,20 @@ const unsigned long HAPPY_PURR_MIN_MS = 30000, HAPPY_PURR_MAX_MS = 60000;  // ha
 const int HAPPY_PURR_TONE_MS = 150;  // each of the 3 purr tones
 const unsigned long LONELY_CHAT_MIN_MS = 15000, LONELY_CHAT_MAX_MS = 30000;  // lonely: meows for attention
 const int EAR_DROOP = 20;         // lonely: ears droop this much at rest (degrees)
+// yawn + stretch when a pat wakes him: eyes stay shut, mouth opens wide, ears lean back, tail stretches out
+const bool YAWN_ON_WAKE = true;
+const int EAR_YAWN = 35;          // ears lean back this much during the yawn (degrees)
+const int TAIL_STRETCH = 50;      // tail stretches out this far
+const int YAWN_STEPS[] = {3, 6, 10, 14, 18};   // mouth height (px) per frame, the last = fully open
+const int YAWN_STEP_MS = 90;      // speed of each mouth frame
+// where the mouth goes on the 240x240 face (same numbers as face/make_yawn.py, which draws the previews)
+const int MOUTH_X = 111, MOUTH_Y = 163, MOUTH_RX = 15, MOUTH_RY = 18;
+const int SMILE_X = 92, SMILE_Y = 150, SMILE_W = 52, SMILE_H = 14;   // white box that rubs out his smile
+// dreams: while he naps, one ear twitches now and then, and sometimes the tip of his tail
+const unsigned long DREAM_MIN_MS = 20000, DREAM_MAX_MS = 60000;
+const int EAR_TWITCH = 15;        // how far an ear twitches (degrees)
+const int DREAM_TAIL_CHANCE = 3;  // 1 in 3 dreams also flick the tail
+const int DREAM_TAIL = 15;        // how far the tail tip flicks in a dream
 // sparkle spots (x, y, radius) on the 240x240 face, nudge if they miss the pupils
 const int SPARK[4][3] = { {77, 84, 4}, {70, 97, 2}, {157, 84, 4}, {150, 97, 2} };
 
@@ -93,7 +110,7 @@ struct Servo {
   }
 };
 Servo earL, earR, tail;
-unsigned long lastActivity = 0, nextBlink = 0, nextChat = 0;
+unsigned long lastActivity = 0, nextBlink = 0, nextChat = 0, nextDream = 0;
 unsigned long micQuietUntil = 0;   // ignore the mic right after Bob makes a sound, or he hears himself as a clap
 bool asleep = false;
 const int BAND_LONELY = 0, BAND_OK = 1, BAND_HAPPY = 2;   // plain ints: Arduino auto-prototypes trip on enum return types
@@ -141,21 +158,62 @@ void purrBurst() {
   micQuietUntil = millis() + 600;
 }
 
-// play one recorded meow: 8-bit samples as PWM duty on a fast carrier, with the talk face
-void meow(int which) {
-  which = constrain(which, 0, 2);
-  showFace(face_talk);
+// play one sound clip: 8-bit samples as PWM duty on a fast carrier
+void playClip(const uint8_t *s, uint32_t len) {
   ledcChangeFrequency(PIN_SPEAKER, 40000, 8);              // 40 kHz carrier, 0-255 duty = the waveform
-  const uint8_t *s = MEOWS[which];
   uint32_t period = 1000000UL / MEOW_RATE, t = micros();
-  for (uint32_t i = 0; i < MEOW_LEN[which]; i++) {
+  for (uint32_t i = 0; i < len; i++) {
     ledcWrite(PIN_SPEAKER, pgm_read_byte(s + i));
     t += period;
     while ((int32_t)(micros() - t) < 0) {}                  // wait for the next sample time
   }
   ledcWrite(PIN_SPEAKER, 0);
   micQuietUntil = millis() + 600;
+}
+
+// one recorded meow, with the talk face
+void meow(int which) {
+  which = constrain(which, 0, 2);
+  showFace(face_talk);
+  playClip(MEOWS[which], MEOW_LEN[which]);
   open();
+}
+
+// the yawn mouth, drawn live over the eyes-shut face (no stored picture: the flash is nearly full)
+void drawYawn(int ry) {
+  gfx->fillRect(SMILE_X, SMILE_Y, SMILE_W, SMILE_H, 0xFFFF);   // rub out his little smile
+  if (ry <= 0) return;
+  int rx = max(3, MOUTH_RX * ry / MOUTH_RY);
+  gfx->fillEllipse(MOUTH_X, MOUTH_Y, rx, ry, 0x38E4);           // inside of the mouth
+  if (ry >= 6) gfx->fillEllipse(MOUTH_X, MOUTH_Y + ry * 6 / 10, rx * 6 / 10, ry * 4 / 10, 0xEBD1);   // tongue
+  for (int k = 0; k < 2; k++) gfx->drawEllipse(MOUTH_X, MOUTH_Y, rx - k, ry - k, 0x18C3);          // ink edge
+}
+
+// gentle wake-up: a big yawn with a stretch (ears back, tail out), then he blinks awake
+void yawnAndStretch() {
+  const int n = sizeof(YAWN_STEPS) / sizeof(YAWN_STEPS[0]);
+  showFace(face_blink);
+  for (int i = 0; i < n; i++) {                              // mouth opens, ears and tail stretch with it
+    drawYawn(YAWN_STEPS[i]);
+    int e = EAR_REST - EAR_YAWN * (i + 1) / n;
+    earL.write(e); earR.write(e);
+    tail.write(TAIL_REST + TAIL_STRETCH * (i + 1) / n);
+    delay(YAWN_STEP_MS);
+  }
+  playClip(yawn_snd, YAWN_LEN);                              // the yawn itself, mouth wide open
+  for (int i = n - 2; i >= -1; i--) {                        // mouth closes again
+    showFace(face_blink);
+    drawYawn(i >= 0 ? YAWN_STEPS[i] : 0);
+    delay(YAWN_STEP_MS);
+  }
+  restEars(); tail.write(TAIL_REST);
+}
+
+// asleep and dreaming: one ear twitches twice, sometimes the tail tip flicks
+void dreamTwitch() {
+  Servo &ear = random(2) ? earL : earR;
+  for (int k = 0; k < 2; k++) { ear.write(earRest() - EAR_TWITCH); delay(70); ear.write(earRest()); delay(90); }
+  if (random(DREAM_TAIL_CHANCE) == 0) { tail.write(TAIL_REST + DREAM_TAIL); delay(150); tail.write(TAIL_REST); }
 }
 
 // a real cat pat: he leans into your hand, side to side, purring
@@ -211,8 +269,13 @@ bool tooManyPats() {
 }
 
 // face = what he shows while waking up (half-open for a pat, irritated for a clap)
+// a pat wakes him gently, so he yawns and stretches first; a clap doesn't get a yawn
 void wake(const uint16_t *face = face_half, int ms = 300) {
-  if (asleep) { asleep = false; showFace(face); delay(ms); open(); restEars(); }
+  if (asleep) {
+    asleep = false;
+    if (face == face_half && YAWN_ON_WAKE) yawnAndStretch();
+    showFace(face); delay(ms); open(); restEars();
+  }
   lastActivity = lastDecay = millis();                     // someone is here: loneliness clock restarts
 }
 
@@ -281,6 +344,12 @@ void loop() {
   if (!asleep && now - lastActivity > SLEEP_AFTER_MS) {    // nap time
     asleep = true; showFace(face_blink);
     lastDecay = millis();                                  // first nap point comes a full minute in
+    nextDream = millis() + random(DREAM_MIN_MS, DREAM_MAX_MS);
+  }
+
+  if (asleep && millis() > nextDream) {                    // dreaming
+    dreamTwitch();
+    nextDream = millis() + random(DREAM_MIN_MS, DREAM_MAX_MS);
   }
   delay(20);
 }
