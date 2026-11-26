@@ -75,47 +75,14 @@ const BOB = { head: BOB_HEAD, side: BOB_SIDE, hdx: 5, hdy: -17,
   eye: '#1e1a18', shine: '#ffffff', lid: '#ffffff', blush: '#f7a8c8',
   legNear: '#e9e5df', legFar: '#8f8a84', paw: '#ffffff', tail: '#8f8a84', fluffy: false };
 
-// Her: a ginger tabby with a cream muzzle, short round ears, green eyes and a teal bow. Smaller than Bob.
-const GIN_HEAD = [
-  '.k.........k.',
-  '.kk.......kk.',
-  'kock.....kcok',
-  'koockkkkkcook',
-  'kooodododoook',
-  'koooooooooook',
-  'kooxyoooxyook',
-  'koouvooouvook',
-  'koqcccpcccqok',
-  '.kocckckccok.',
-  '..kocccccok..',
-  '...kkkkkkk...'];
-const GIN_SIDE = [
-  '..kkkkkkkkkk...',
-  '.kodoodoodook..',
-  '.kooooooooocck.',
-  '.kccccccccccck.',
-  '..kccccccccck..',
-  '...kkkkkkkkk...'];
-const BOW = ['b...b', 'bbBbb', 'b...b'];
-const GIN = { head: GIN_HEAD, side: GIN_SIDE, hdx: 6, hdy: -9,
-  pal: { k: '#3a2418', o: '#f39a4a', d: '#c8622a', c: '#ffe7c7', p: '#ff8fa8', q: '#f39a4a', b: '#2fc4b2', B: '#16807a' },
-  eye: '#1e1a18', iris: '#7ccf4a', lid: '#f39a4a', blush: '#ff7f9a',
-  legNear: '#f39a4a', legFar: '#c8622a', paw: '#ffe7c7', tail: '#f39a4a', stripe: '#c8622a', fluffy: true };
-
 // look: +1 right, -1 left. mood: 'open' | 'shut' | 'happy' (^ ^)
 function eyesFor(cat, look, mood, blush) {
   const p = Object.assign({}, cat.pal);
   if (blush) p.q = cat.blush;
   const E = cat.eye, L = cat.lid;
-  if (cat === BOB) {
-    if (mood === 'open') Object.assign(p, { x: look > 0 ? cat.shine : E, y: look > 0 ? E : cat.shine, a: E, b: E, f: E, c: L, d: E });
-    else if (mood === 'happy') Object.assign(p, { x: L, a: E, y: L, b: E, f: L, c: L, d: L });
-    else Object.assign(p, { x: L, a: L, y: L, b: E, f: E, c: L, d: L });
-  } else {
-    const I = cat.iris;
-    if (mood === 'open') Object.assign(p, look > 0 ? { x: I, y: E, u: I, v: E } : { x: E, y: I, u: E, v: I });
-    else Object.assign(p, { x: E, y: E, u: L, v: L });
-  }
+  if (mood === 'open') Object.assign(p, { x: look > 0 ? cat.shine : E, y: look > 0 ? E : cat.shine, a: E, b: E, f: E, c: L, d: E });
+  else if (mood === 'happy') Object.assign(p, { x: L, a: E, y: L, b: E, f: L, c: L, d: L });
+  else Object.assign(p, { x: L, a: L, y: L, b: E, f: E, c: L, d: L });
   return p;
 }
 
@@ -157,7 +124,6 @@ function walker(cat, bx, ground, pose, f, look, mood, blush, t) {
   leg(bx + 10, by + 5, legs[3][0], legs[3][1], cat.legNear, cat.paw);
   const hx = bx + cat.hdx, hyy = by + cat.hdy + hy;
   spr(cat.head, hx, hyy, eyesFor(cat, look, mood, blush));
-  if (cat === GIN) spr(BOW, hx + 8, hyy - 1, cat.pal);
   return [hx + (cat.head[0].length >> 1), hyy];       // top-centre of the head, for hearts
 }
 
@@ -166,85 +132,222 @@ const HEART_BIG = ['.rr.rr.', 'rhrrrrr', 'rrrrrrr', 'rrrrrrr', '.rrrrr.', '..rrr
 const HEART_PAL = { r: '#ff4f7e', h: '#ffd0dc' };
 function sparkle(x, y, k, col) { put(x, y - k, 1, 2 * k + 1, col); put(x - k, y, 2 * k + 1, 1, col); }
 
-// ================= 1. City night: Bob and her run the rooftops =================
-const CITY_T = 7.6;
-const SEGS = [[0, 9], [1.4, 12], [4.7, 0], [6.3, 9]];   // [from second, speed in grid px/s]: walk, run + jumps, stop, walk
-function scrollAt(T) {
-  let s = 0;
-  SEGS.forEach(([t0, v], i) => { const t1 = i + 1 < SEGS.length ? SEGS[i + 1][0] : CITY_T; if (T > t0) s += v * (Math.min(T, t1) - t0); });
-  return s;
-}
-const LOOP_PX = scrollAt(CITY_T);
-const G = 64, BOB_X = 18, GIN_X = 45, JUMP_W = 9, JUMP_H = 11;
-const WALL0 = scrollAt(2.0) + GIN_X + 10;                // she clears the wall at 2.0 s, Bob a moment later
-const FISH = ['..xxx.x', '.xexxxx', '..xxx.x'];
-const CSKY = ['#121635', '#161c44', '#1c2353', '#232a62', '#2d3170', '#3a387c', '#4a3f86', '#584690'];
+// ================= 1. City night: a long rooftop walk with her, then they sit and watch the full moon =================
+// The camera sits far back here, so both cats are small sprites of their own and the whole skyline fits.
+const BS = {   // Bob, small: tall pink ears, white heart face, grey fur, big dark eyes
+  pal: { k: '#2a2622', g: '#8f8a84', l: '#b9b3ab', w: '#ffffff', p: '#e46aa0', r: '#d9d4e6' },
+  head: [
+    '.k.......k.',
+    'kpk.....kpk',
+    'kpk.....kpk',
+    'kppk...kppk',
+    'kgppkkkppgk',
+    'kgwwwgwwwgk',
+    'kwwwwwwwwwk',
+    'kwxawwwxawk',
+    'kwbbwwwbbwk',
+    'kgwwwpwwwgk',
+    '.kgwwwwwgk.',
+    '..kgwwwgk..',
+    '...kgwgk...',
+    '....kkk....'],
+  side: [
+    '..kkkkkkkk..',
+    '.kglllllggk.',
+    'kgggggggggwk',
+    '.kwwwwwwwwk.'],
+  back: [            // sitting, seen from behind, moonlight catching his edges
+    '..k.......k..',
+    '.krk.....krk.',
+    '.krk.....krk.',
+    '.krgk...kgrk.',
+    '.krgpkkkpgrk.',
+    '.krrrrrrrrrk.',
+    'krgggggggggrk',
+    'kgggggggggggk',
+    '.kgggggggggk.',
+    '..kkgggggkk..',
+    '..krgggggrk..',
+    '.krggglgggrk.',
+    '.kgggglggggk.',
+    'kgggggggggggk',
+    'kgggggggggggk',
+    'kgggggggggggk',
+    '.kkkkkkkkkkk.'],
+  hx: 4, hy: -11, legs: [2, 3, 8, 9], legLen: 3, near: '#e9e5df', far: '#6f6a64', paw: '#ffffff', tail: '#8f8a84' };
+const GS = {   // her, small: ginger tabby, cream muzzle, short round ears, green eyes, teal bow
+  pal: { k: '#3a2418', o: '#f39a4a', d: '#c8622a', c: '#ffe7c7', p: '#ff8fa8', b: '#2fc4b2', B: '#16807a', r: '#ffc890' },
+  head: [
+    '.k.....k.',
+    'kpk...kpk',
+    'kookkkook',
+    'kodododok',
+    'koooooook',
+    'kxyoooxyk',
+    'koccpccok',
+    '.kccccck.',
+    '..kkkkk..'],
+  side: [
+    '..kkkkkk..',
+    '.kodoodok.',
+    'koooooocck',
+    '.kcccccck.'],
+  back: [
+    '..k.....k..',
+    '.krk...krk.',
+    '.krokkkork.',
+    'krrrrrrrrrk',
+    'koooodooook',
+    'koooodooook',
+    '.koooooook.',
+    '..kkoookk..',
+    '.krooooork.',
+    'kddoooooddk',
+    'koooooooook',
+    'kddoooooddk',
+    'koooooooook',
+    '.kkkkkkkkk.'],
+  hx: 3, hy: -6, legs: [2, 3, 6, 7], legLen: 2, near: '#f39a4a', far: '#b0561f', paw: '#ffe7c7', tail: '#f39a4a', stripe: '#c8622a' };
+const BOW_S = ['b.b', 'bBb'];
+const FISH = ['..xxx.x', '.xexxxx', '..xxx.x'];   // the billboard here, and the fish in the sky dream
+const DARK_EYE = '#1e1a18', IRIS = '#7ccf4a';
 
-function jumpPose(S, cx) {   // where a cat is in its jump over the nearest wall: [pose, height]
-  const k = Math.round((S + cx - WALL0) / LOOP_PX), u = (S + cx - (k * LOOP_PX + WALL0 - JUMP_W / 2)) / JUMP_W;
-  if (u > -0.22 && u <= 0) return ['crouch', 0];
-  if (u > 0 && u < 1) return [u < 0.3 ? 'up' : u < 0.7 ? 'air' : 'down', Math.round(JUMP_H * 4 * u * (1 - u))];
-  if (u >= 1 && u < 1.18) return ['land', 0];
-  return null;
+function smallEyes(cat, look, mood) {
+  const p = Object.assign({}, cat.pal);
+  if (cat === BS) Object.assign(p, mood === 'open' ? { x: DARK_EYE, a: DARK_EYE, b: DARK_EYE } : { x: p.w, a: p.w, b: DARK_EYE });
+  else Object.assign(p, mood === 'open' ? (look > 0 ? { x: IRIS, y: DARK_EYE } : { x: DARK_EYE, y: IRIS }) : { x: p.d, y: p.d });
+  return p;
 }
+function tailS(pts, cat) {   // outline pass, then a 1 px fill, striped if she has stripes
+  for (const [x, y] of pts) put(x - 1, y - 1, 3, 3, cat.pal.k);
+  pts.forEach(([x, y], i) => put(x, y, 1, 1, cat.stripe && i % 3 === 2 ? cat.stripe : cat.tail));
+}
+const STEP_S = [1, 0, -1, 0];
+function smallWalker(cat, bx, ground, f, moving, look, mood, t) {   // side-on body, head turned to you
+  const by = ground - cat.side.length - cat.legLen - (moving && f % 2 ? 1 : 0);
+  const sway = Math.sin(t * 3) * (moving ? 0.7 : 1.3), pts = [];
+  for (let i = 1; i <= 6; i++) pts.push([bx + 1 - i * 0.5 + Math.sin(t * 2.5 - i * 0.5) * i * 0.15 * sway, by + 1 - i * 0.9 + (i > 4 ? (i - 4) * 0.6 : 0)]);
+  tailS(pts, cat);
+  const top = by + cat.side.length;
+  const leg = (i, col, paw) => {   // legs 0 near back, 1 far back, 2 near front, 3 far front; diagonal pairs step together
+    const ph = (f + (i === 0 || i === 3 ? 0 : 2)) % 4, dx = moving ? STEP_S[ph] : 0, len = ground - top - (moving && ph === 3 ? 1 : 0);
+    for (let j = 0; j < len; j++) put(bx + cat.legs[i] + Math.round(dx * j / Math.max(1, len - 1)), top + j, 1, 1, j === len - 1 ? paw : col);
+  };
+  leg(1, cat.far, cat.far); leg(3, cat.far, cat.far);
+  spr(cat.side, bx, by, cat.pal);
+  leg(0, cat.near, cat.paw); leg(2, cat.near, cat.paw);
+  const hx = bx + cat.hx, hy = by + cat.hy;
+  spr(cat.head, hx, hy, smallEyes(cat, look, mood));
+  if (cat === GS) spr(BOW_S, hx + 6, hy, cat.pal);
+}
+
+const CITY_T = 16, WALK_V = 11, WALK_END = 8.4, BRAKE = 0.7, SIT_AT = 9.8;
+const scrollAt = T => T < WALK_END ? WALK_V * T : WALK_V * (WALK_END + BRAKE * (u => u - u * u / 2)(clamp01((T - WALK_END) / BRAKE)));
+const G = 66, MOON = [40, 21, 10];
+const CSKY = ['#0b0f2a', '#0e1332', '#11173b', '#151b45', '#1a1f4f', '#20245a', '#272a64', '#302f6d', '#3a3474', '#453a7a'];
+const TANK = ['..aaa..', '.aaaaa.', 'abbbbba', 'aaaaaaa', 'abbbbba', 'aaaaaaa', '.a...a.', '.a...a.'];
+// their tails meet between them and curl up into a heart: Bob's grey makes one side, hers the other
+const TAIL_B = [[36, -2], [37, -1], [38, -1], [39, -2], [40, -3], [41, -4], [42, -5], [43, -6], [43, -7], [42, -8], [41, -8], [40, -7]];
+const TAIL_G = TAIL_B.map(([x, y]) => [80 - x, y]);
+const lazy = (pts, dir) => pts.map(([x, y], i) => [pts[0][0] + dir * i * 0.45, -1 - i * 0.45]);   // the same tail, loosely raised
 
 function city(t) {
-  const T = t % CITY_T, S = Math.floor(t / CITY_T) * LOOP_PX + scrollAt(T);
-  CSKY.forEach((c, i) => put(0, i * 8, N, 8, c));
-  put(0, 64, N, 16, CSKY[7]);
-  for (let i = 0; i < 46; i++) {
-    const x = hash(i, 1) * N | 0, y = hash(i, 2) * 46 | 0, tw = Math.sin(t * 2.3 + i * 1.7);
-    if (tw > -0.4) put(x, y, 1, 1, tw > 0.85 ? '#ffffff' : '#8a90c8');
+  const T = t % CITY_T, S = scrollAt(T);
+  CSKY.forEach((c, i) => put(0, i * 7, N, 7, c));
+  for (let i = 0; i < 70; i++) {                                                          // stars, none in front of the moon
+    const x = hash(i, 1) * N | 0, y = hash(i, 2) * 46 | 0, tw = Math.sin(t * 2.1 + i * 1.7);
+    if (Math.hypot(x - MOON[0], y - MOON[1]) < 16 || tw < -0.5) continue;
+    if (i % 9 === 0 && tw > 0.6) sparkle(x, y, 1, '#c9ceff');
+    put(x, y, 1, 1, tw > 0.8 ? '#ffffff' : i % 3 ? '#8a90c8' : '#c9ceff');
   }
-  disc(57, 17, 8, '#262d68'); disc(57, 17, 6, '#fff1c4');                              // moon and its glow
-  put(54, 15, 2, 2, '#ecdca4'); put(59, 19, 2, 1, '#ecdca4'); put(58, 13, 1, 1, '#ecdca4');
-  const far = S * 0.15;                                                                   // far skyline
-  for (let c = Math.floor(far / 7) - 1; c <= Math.floor((far + N) / 7) + 1; c++) {
-    const x = c * 7 - far, top = 38 + (hash(c, 3) * 12 | 0);
-    put(x, top, 6, 30, '#222a5c');
-    if (hash(c, 4) > 0.7) put(x + 2, top - 3, 1, 3, '#222a5c');                          // antenna
-    for (let wy = top + 2; wy < 62; wy += 3) for (let wx = 1; wx < 5; wx += 2) if (hash(c * 31 + wx, wy) > 0.82) put(x + wx, wy, 1, 1, '#9d8f6a');
+  if (T > 12.6 && T < 13.1) {                                                             // one shooting star while they sit
+    const u = (T - 12.6) / 0.5;
+    for (let k = 0; k < 6; k++) { const v = u - k * 0.04; if (v > 0) put(70 - v * 18, 5 + v * 9, 1, 1, k ? '#8a90c8' : '#ffffff'); }
   }
-  const mid = S * 0.45;                                                                   // nearer houses with warm windows
-  for (let c = Math.floor(mid / 14) - 1; c <= Math.floor((mid + N) / 14) + 1; c++) {
-    const x = c * 14 - mid, w = 11 + (hash(c, 5) * 2 | 0), top = 34 + (hash(c, 6) * 10 | 0);
-    put(x, top, w, 40, '#181c42'); put(x + w - 1, top, 1, 40, '#262c5e'); put(x - 1, top - 1, w + 2, 1, '#2a2f62');
-    for (let wy = top + 3; wy < 60; wy += 4) for (let wx = 2; wx < w - 2; wx += 3) {
-      const lit = hash(c * 17 + wx, wy) > 0.68 !== (hash(c, wx * wy) > 0.97 && Math.sin(t * 0.8 + c) > 0);
-      put(x + wx, wy, 2, 2, lit ? '#f2c055' : '#22285a');
-      if (lit) put(x + wx, wy + 1, 2, 1, '#d09838');
+  const [mx, my, mr] = MOON;                                                              // big full moon, soft glow
+  for (let y = -mr - 5; y <= mr + 5; y++) for (let x = -mr - 5; x <= mr + 5; x++) {
+    const d = Math.hypot(x, y);
+    if (d < mr + 2.5 || (d < mr + 5 && (x + y) % 2 === 0)) put(mx + x, my + y, 1, 1, d < mr + 2.5 ? '#3a3f86' : '#2a2f6e');
+  }
+  disc(mx, my, mr, '#fff1c4');
+  for (let y = -mr; y <= mr; y++) for (let x = -mr; x <= mr; x++) {                      // shaded right limb
+    const d = x * x + y * y;
+    if (d <= mr * mr + mr && Math.hypot(x - 3, y + 2) > mr - 0.5) put(mx + x, my + y, 1, 1, '#ecdca4');
+  }
+  [[-4, -3, 3, 2], [2, 3, 3, 2], [-2, 4, 2, 1], [4, -4, 2, 1], [-6, 1, 1, 2]].forEach(([x, y, w, h]) => put(mx + x, my + y, w, h, '#e2d096'));
+  put(mx - 5, my - 6, 2, 1, '#fffbe8'); put(mx - 6, my - 5, 1, 2, '#fffbe8');
+
+  const far = S * 0.1;                                                                    // far skyline, hazy
+  for (let c = Math.floor(far / 6) - 1; c <= Math.floor((far + N) / 6) + 1; c++) {
+    const x = c * 6 - far, w = 5 + (hash(c, 3) * 3 | 0), tall = hash(c, 13) > 0.7 && (c * 6 < 18 || c * 6 > 64), top = (tall ? 27 : 36) + (hash(c, 4) * 11 | 0);
+    put(x, top, w, G - top, '#1f2656');
+    if (tall) { put(x + 1, top - 2, w - 2, 2, '#1f2656'); put(x + (w >> 1), top - 7, 1, 5, '#1f2656'); if (Math.sin(t * 3 + c) > 0.2) put(x + (w >> 1), top - 8, 1, 1, '#ff5a5a'); }
+    else if (hash(c, 5) > 0.72) put(x + 2, top - 3, 1, 3, '#1f2656');
+    for (let wy = top + 2; wy < G; wy += 3) for (let wx = 1; wx < w - 1; wx += 2) if (hash(c * 13 + wx, wy) > 0.84) put(x + wx, wy, 1, 1, '#8c7f6a');
+  }
+  const mid = S * 0.3;                                                                    // middle blocks: water tanks, many small windows, neon
+  for (let c = Math.floor(mid / 13) - 1; c <= Math.floor((mid + N) / 13) + 1; c++) {
+    const x = c * 13 - mid, w = 9 + (hash(c, 6) * 4 | 0), top = 39 + (hash(c, 7) * 14 | 0);
+    put(x, top, w, G - top, '#171c46'); put(x, top - 1, w, 1, '#2b3170'); put(x, top, 1, G - top, '#232a60');
+    for (let wy = top + 2; wy < G; wy += 2) for (let wx = 2; wx < w - 1; wx += 2) {
+      const h = hash(c * 17 + wx, wy);
+      if (h > 0.7) put(x + wx, wy, 1, 1, h > 0.96 ? '#9fd8ff' : h > 0.85 ? '#ffdf8a' : '#f2b24a');
     }
-    if (((c % 4) + 4) % 4 === 1) {                                                        // a fish-shop sign, neon, flickering
-      put(x + 1, top + 5, 10, 6, '#2a1430'); put(x + 1, top + 5, 10, 1, '#4a2450');
-      const on = Math.sin(t * 7 + c) > -0.7 || Math.sin(t * 1.3) > 0.5;
-      spr(FISH, x + 3, top + 7, { x: on ? '#ff6fae' : '#6a3456', e: '#2a1430' });
+    const roof = hash(c, 8);
+    if (roof > 0.55) spr(TANK, x + ((w - 7) >> 1), top - 9, { a: '#3d4488', b: '#272d66' });
+    else if (roof > 0.3) { put(x + w - 3, top - 5, 1, 5, '#2b3170'); put(x + w - 5, top - 4, 5, 1, '#2b3170'); }
+    if (hash(c, 9) > 0.62) {                                                              // vertical neon blade sign, flickers
+      const on = Math.sin(t * 6 + c * 2) > -0.8 || Math.sin(t * 1.1 + c) > 0.6, col = hash(c, 10) > 0.5 ? '#ff6fae' : '#4fe3d0';
+      put(x - 1, top + 3, 3, 9, '#2a1430');
+      for (let k = 0; k < 4; k++) put(x, top + 4 + k * 2, 1, 1, on ? col : '#4a2a4a');
     }
   }
-  put(0, G, N, 1, '#7a6690'); put(0, G + 1, N, 1, '#4a3a62'); put(0, G + 2, N, 14, '#2c2140');   // our rooftop
+  const near = S * 0.55;                                                                  // near rooftops, a fish billboard
+  for (let c = Math.floor(near / 22) - 1; c <= Math.floor((near + N) / 22) + 1; c++) {
+    const x = c * 22 - near, w = 15 + (hash(c, 11) * 5 | 0), top = 54 + (hash(c, 12) * 5 | 0);
+    put(x, top, w, G - top, '#100d28'); put(x, top - 1, w, 1, '#221d48');
+    for (let wy = top + 3; wy < G - 1; wy += 4) for (let wx = 2; wx < w - 2; wx += 4) if (hash(c * 7 + wx, wy) > 0.6) put(x + wx, wy, 2, 2, '#e8a640');
+    if (((c % 3) + 3) % 3 === 1) {
+      const on = Math.sin(t * 5 + c) > -0.75;
+      put(x + 3, top - 9, 1, 8, '#221d48'); put(x + 13, top - 9, 1, 8, '#221d48');
+      put(x + 2, top - 13, 13, 6, '#2a1430'); put(x + 2, top - 13, 13, 1, '#4a2450');
+      spr(FISH, x + 5, top - 11, { x: on ? '#ff6fae' : '#6a3456', e: '#2a1430' });
+    }
+  }
+  put(0, G, N, 1, '#8b7fae'); put(0, G + 1, N, 1, '#5a4c7c'); put(0, G + 2, N, N - G - 2, '#2b2244');   // our rooftop ledge
   for (let y = G + 4; y < N; y += 3) {
-    put(0, y, N, 1, '#1f1730');
-    for (let x = -((S + (y % 2) * 3) % 6); x < N; x += 6) put(x, y + 1, 1, 2, '#1f1730');
+    put(0, y, N, 1, '#221a38');
+    for (let x = -((S + (y % 2) * 3) % 6); x < N; x += 6) put(x, y + 1, 1, 2, '#221a38');
   }
-  for (let k = Math.floor(S / LOOP_PX) - 1; k <= Math.floor(S / LOOP_PX) + 2; k++) {      // the wall they jump
-    const wx = k * LOOP_PX + WALL0 - S - 2;
-    put(wx, G - 8, 5, 8, '#9a4f3c');
-    for (let y = G - 6; y < G; y += 2) put(wx, y, 5, 1, '#5e2c22');
-    put(wx + 2, G - 7, 1, 1, '#5e2c22'); put(wx + 1, G - 5, 1, 1, '#5e2c22'); put(wx + 3, G - 3, 1, 1, '#5e2c22');
-    put(wx - 1, G - 9, 7, 1, '#c9b8a0');
+  for (let c = Math.floor(S / 19) - 1; c <= Math.floor((S + N) / 19) + 1; c++) {          // things on our roof, behind the cats
+    const x = c * 19 - S + 6, k = hash(c, 30);
+    if (k < 0.3) { put(x, G - 5, 2, 5, '#5a5080'); put(x - 1, G - 6, 4, 1, '#7a6ea4'); }
+    else if (k < 0.5) { put(x, G - 7, 4, 7, '#7a3e34'); put(x - 1, G - 8, 6, 1, '#a89a8a'); put(x, G - 4, 4, 1, '#5a2c24'); }
+    else if (k < 0.65) { put(x, G - 4, 7, 4, '#4c4468'); put(x, G - 4, 7, 1, '#6c6490'); put(x + 1, G - 3, 2, 2, '#2e2844'); }
   }
-  const pause = T >= 4.7 && T < 6.3, f = Math.floor(S / 2.2) % 4;
-  const cats = [[BOB, BOB_X], [GIN, GIN_X]], heads = [];
-  for (const [cat, x] of cats) {
-    const j = pause ? null : jumpPose(S, x + 10);
-    const look = pause && cat === GIN ? -1 : 1;
-    const mood = pause && T > 5.6 ? 'happy' : 'open';
-    heads.push(j ? walker(cat, x, G - j[1], j[0], f, look, mood, false, t)
-                 : walker(cat, x, G, pause ? 'stand' : 'walk', f, look, mood, pause && T > 5.0, t));
+
+  const sit = T >= SIT_AT, f = Math.floor(S / 2.4) % 4, moving = T < WALK_END + BRAKE;
+  if (!sit) {
+    const glance = !moving;                                                               // stopped: a look at each other
+    const blinkB = (T % 3.3) < 0.12, blinkG = ((T + 1.4) % 2.9) < 0.12;
+    smallWalker(BS, 22, G, f, moving, 1, blinkB ? 'shut' : 'open', t);
+    smallWalker(GS, 41, G, (f + 1) % 4, moving, glance ? -1 : 1, blinkG ? 'shut' : 'open', t);
+  } else {
+    const dy = T < SIT_AT + 0.1 ? -2 : T < SIT_AT + 0.2 ? -1 : 0;                         // settle down onto the ledge
+    spr(BS.back, 24, G - BS.back.length + dy, BS.pal);
+    spr(GS.back, 45, G - GS.back.length + dy, GS.pal);
+    spr(BOW_S, 53, G - GS.back.length + dy + 2, GS.pal);                                  // on her right ear
+    const k = ease(clamp01((T - SIT_AT - 0.6) / 1.8)), wob = Math.sin(t * 2.2);
+    const curl = (to, dir) => { const from = lazy(to, dir); return to.map(([x, y], i) => {
+      const u = clamp01(k * 1.6 - (i / to.length) * 0.6);
+      return [Math.round(from[i][0] + (x - from[i][0]) * u + (i > 6 ? dir * wob * (1 - k) : 0)), Math.round(G + from[i][1] + (y - from[i][1]) * u)];
+    }); };
+    const line = (pts, col) => pts.forEach(([x, y]) => put(x, y, 1, 1, col));   // no outline: at this size it swallows the shape
+    line(curl(TAIL_G, -1), GS.tail);
+    line(curl(TAIL_B, 1), BS.pal.l);
   }
-  if (pause && T > 5.0) {                                                                  // a tiny heart between them
-    const k = (T - 5.0) / 1.3, hx = (heads[0][0] + heads[1][0]) / 2 - 2;
-    if (k < 1 && (k < 0.8 || Math.floor(T * 12) % 2)) spr(HEART, hx, heads[1][1] - 4 - k * 6, HEART_PAL);
-  }
+  const fade = Math.min(1, T / 0.35, (CITY_T - T) / 0.6);                                  // soft loop: dark in, dark out
+  if (fade < 1) for (let i = 0; i < buf.length; i += 4) { buf[i] = 8 + (buf[i] - 8) * fade; buf[i + 1] = 10 + (buf[i + 1] - 10) * fade; buf[i + 2] = 30 + (buf[i + 2] - 30) * fade; }
 }
 
 // ================= 2. Home: Bob eats from his bowl in a warm room, it magically refills =================
@@ -362,8 +465,8 @@ const SCENES = { city, home, sky };
 const DREAM = {
   N, SCENES: Object.keys(SCENES),
   PERIOD: { city: CITY_T, home: HOME_T, sky: SKY_T },
-  KEY: { city: 5.8, home: 6.0, sky: 4.2 },   // a still that tells the story, for reduced motion
-  TITLE: { city: 'roaming the city at night with a friend', home: 'a full food bowl at home', sky: 'paddling through the stars with the fish' },
+  KEY: { city: 13.0, home: 6.0, sky: 4.2 },   // a still that tells the story, for reduced motion
+  TITLE: { city: 'a rooftop walk with a friend, then the full moon', home: 'a full food bowl at home', sky: 'paddling through the stars with the fish' },
   frame(scene, t) { SCENES[scene](t); return buf; }
 };
 if (typeof module !== 'undefined') module.exports = DREAM; else window.DREAM = DREAM;
