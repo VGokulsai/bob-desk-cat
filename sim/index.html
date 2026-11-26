@@ -48,6 +48,7 @@
   <div id="status">Click anywhere to wake the sound, then pat him.</div>
   <div id="mood" aria-live="polite"></div>
 </main>
+<script src="dream.js"></script>
 <script>
 // Same settings as firmware/bob/bob.ino, so this behaves like the real Bob.
 const C = { EAR_TILT:25, TAIL_SWAY:45, TAIL_FLICK:40, RUB_SHIFT:8, RUB_STEPS:6, RUB_STEP_MS:280,
@@ -207,11 +208,60 @@ function tooManyPats() {
 // face = what he shows while waking up (half-open for a pat, irritated for a clap)
 async function wake(face = 'half', ms = 300) {
   if (asleep) {
+    if (dreaming) await exitDream();                 // leave the dream world first
     asleep = false;
     if (face === 'half') { status('Waking up... big yawn.'); await yawnAndStretch(); }   // a pat wakes him gently
     draw(face); await sleep(ms); open(); restEars();
   }
   lastActivity = lastDecay = performance.now();   // someone is here: loneliness clock restarts
+}
+
+// ---- dream world: after he has slept a while, the screen zooms into him and opens his dream ----
+// The dream comes from dream.js: pixel stories on an 80x80 grid, no pictures, so the real chip can draw them too.
+const DW = { AFTER_MS: 10000, ZOOM_MS: 1100, IRIS_MS: 600 };   // firmware: DREAM_WORLD_AFTER_MS etc.
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let dreaming = false, sleptAt = 0, dreamT0 = 0;
+const EYE = [60, 128];      // his closed left eye: the camera dives in here and the dream opens from it
+const FORCED = new URLSearchParams(location.search).get('dream');   // ?dream=city|home|sky to always see one
+let scene = 'city', naps = rand(0, DREAM.SCENES.length);           // each nap dreams the next story, so two in a row differ
+const dcv = document.createElement('canvas'); dcv.width = dcv.height = DREAM.N;
+const dctx = dcv.getContext('2d'), dimg = dctx.createImageData(DREAM.N, DREAM.N);
+function dreamFrame(t) {   // reduced motion: one still that tells the story
+  dimg.data.set(DREAM.frame(scene, REDUCED ? DREAM.KEY[scene] : t)); dctx.putImageData(dimg, 0, 0);
+  ctx.imageSmoothingEnabled = false; ctx.drawImage(dcv, 0, 0, 240, 240); ctx.imageSmoothingEnabled = true;
+}
+
+const easeInOut = x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+function zoomFace(s) {                 // his sleeping face, scaled s times, centred between his eyes
+  const [cx, cy] = EYE;
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, 240, 240);
+  ctx.drawImage(img.blink, ...CROP, cx - cx * s, cy - cy * s, 240 * s, 240 * s);
+}
+function anim(ms, fn) {
+  return new Promise(res => { const t0 = performance.now();
+    const step = now => { const k = Math.min(1, (now - t0) / ms); fn(k); k < 1 ? requestAnimationFrame(step) : res(); };
+    requestAnimationFrame(step); });
+}
+async function enterDream() {
+  scene = DREAM.SCENES.includes(FORCED) ? FORCED : DREAM.SCENES[naps++ % DREAM.SCENES.length];
+  status(`He is dreaming: ${DREAM.TITLE[scene]}...`);
+  dreamT0 = performance.now();
+  if (!REDUCED) {
+    await anim(DW.ZOOM_MS, k => zoomFace(1 + easeInOut(k) * 4));                     // zoom into him
+    await anim(DW.IRIS_MS, k => { zoomFace(5); ctx.save(); ctx.beginPath();        // the dream opens from the middle
+      ctx.arc(EYE[0], EYE[1], easeInOut(k) * 250, 0, 7); ctx.clip(); dreamFrame((performance.now() - dreamT0) / 1000); ctx.restore(); });
+  }
+  dreaming = true;
+  (function loop() { if (!dreaming) return; dreamFrame((performance.now() - dreamT0) / 1000); requestAnimationFrame(loop); })();
+}
+async function exitDream() {
+  dreaming = false;
+  if (!REDUCED) {
+    await anim(DW.IRIS_MS, k => { zoomFace(5); ctx.save(); ctx.beginPath();        // the dream closes
+      ctx.arc(EYE[0], EYE[1], (1 - easeInOut(k)) * 250, 0, 7); ctx.clip(); dreamFrame((performance.now() - dreamT0) / 1000); ctx.restore(); });
+    await anim(DW.ZOOM_MS * 0.7, k => zoomFace(5 - easeInOut(k) * 4));               // back out to his face
+  }
+  draw('blink');
 }
 
 // Bob does one thing at a time, like the real firmware loop
@@ -249,7 +299,8 @@ async function blinkLoop() {
 
 setInterval(() => {
   const now = performance.now();
-  if (!asleep && !busy && now - lastActivity > C.SLEEP_AFTER_MS) { asleep = true; draw('blink'); lastDecay = now; nextDream = now + rand(C.DREAM_MIN_MS, C.DREAM_MAX_MS); status('Napping. Pat or clap to wake him.'); }
+  if (!asleep && !busy && now - lastActivity > C.SLEEP_AFTER_MS) { asleep = true; draw('blink'); lastDecay = now; sleptAt = now; nextDream = now + rand(C.DREAM_MIN_MS, C.DREAM_MAX_MS); status('Napping. Pat or clap to wake him.'); }
+  if (asleep && !busy && !dreaming && now - sleptAt > DW.AFTER_MS) act(enterDream);
   if (asleep && !busy && now > nextDream) { act(dream); nextDream = now + rand(C.DREAM_MIN_MS, C.DREAM_MAX_MS); }
   if (!asleep && !busy && now > nextChat) { act(() => meow(rand(0, 3))); nextChat = now + chatGap(); }
   if (!asleep && !busy && now > nextPurr) {           // happy: a little purr on his own
