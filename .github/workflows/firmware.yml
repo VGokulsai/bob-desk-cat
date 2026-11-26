@@ -21,3 +21,10 @@ jobs:
           sketch-paths: |
             - firmware/bob
           enable-warnings-report: true
+  dream-matches-sim:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Firmware dreams draw the same pixels as sim/dream.js
+        working-directory: firmware/dream_check
+        run: g++ -O2 -Wall -o dream_check dream_check.cpp && ./dream_check > fw.bin && node compare.js fw.bin

@@ -4,3 +4,4 @@ __pycache__/
 fp-info-cache
 FIRMWARE-COACH.md
 *.glb
+face/.webui_secret_key

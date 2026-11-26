@@ -26,10 +26,14 @@
 //       OK (30-69)   : his normal self
 //       LONELY (<30) : half-shut eyes, no sparkles, ears droop, meows for attention a lot more
 //     he wakes up showing whatever band he's in now, so a long-neglected Bob wakes up lonely
+//   - asleep for a bit, he really dreams: the screen dives into his closed eye and opens one of three
+//     pixel dreams (a rooftop walk with a ginger cat under the moon, dinner at home, paddling through the
+//     stars), a different one each nap. A pat or a clap pulls him out of it, back through his eye
 
 #include <Arduino_GFX_Library.h>
 #include "bob_faces.h"   // face_idle, face_blink, face_half, face_talk, face_lick, face_irritated (240x240)
 #include "bob_meows.h"   // MEOWS[3], MEOW_LEN[3], MEOW_RATE, yawn_snd, YAWN_LEN: made by face/make_meows_h.py
+#include "bob_dream.h"   // dream::frame(): the sim's dream.js drawn in C++ (checked against it in CI)
 
 // ---------- pins (from the schematic) ----------
 const int PIN_SCK = 12, PIN_MOSI = 11, PIN_CS = 10, PIN_DC = 13, PIN_RST = 14;
@@ -89,6 +93,11 @@ const unsigned long DREAM_MIN_MS = 20000, DREAM_MAX_MS = 60000;
 const int EAR_TWITCH = 15;        // how far an ear twitches (degrees)
 const int DREAM_TAIL_CHANCE = 3;  // 1 in 3 dreams also flick the tail
 const int DREAM_TAIL = 15;        // how far the tail tip flicks in a dream
+// dream world: asleep this long -> the screen zooms into his eye and a dream opens (same numbers as sim/index.html)
+const unsigned long DREAM_WORLD_AFTER_MS = 10000;
+const int DREAM_ZOOM_MS = 1100;   // diving into his eye
+const int DREAM_IRIS_MS = 600;    // the dream opening out of it
+const int EYE_X = 60, EYE_Y = 128;   // his closed left eye on the 240x240 face
 // sparkle spots (x, y, radius) on the 240x240 face, nudge if they miss the pupils
 const int SPARK[4][3] = { {77, 84, 4}, {70, 97, 2}, {157, 84, 4}, {150, 97, 2} };
 
@@ -113,6 +122,9 @@ Servo earL, earR, tail;
 unsigned long lastActivity = 0, nextBlink = 0, nextChat = 0, nextDream = 0;
 unsigned long micQuietUntil = 0;   // ignore the mic right after Bob makes a sound, or he hears himself as a clap
 bool asleep = false;
+bool dreaming = false;
+unsigned long sleptAt = 0, dreamT0 = 0;
+int dreamScene = 0, naps = 0;         // naps picks the story: each nap dreams the next one
 const int BAND_LONELY = 0, BAND_OK = 1, BAND_HAPPY = 2;   // plain ints: Arduino auto-prototypes trip on enum return types
 int mood = MOOD_START;
 int band = BAND_OK;                   // set from mood in setup()
@@ -216,6 +228,56 @@ void dreamTwitch() {
   if (random(DREAM_TAIL_CHANCE) == 0) { tail.write(TAIL_REST + DREAM_TAIL); delay(150); tail.write(TAIL_REST); }
 }
 
+// ---- dream world ----
+float ease3(float x) { return x < 0.5f ? 4 * x * x * x : 1 - powf(-2 * x + 2, 3) / 2; }
+
+// one screen: his sleeping face zoomed s times into his eye, with the dream showing through a circle of radius r.
+// Drawn 16 rows at a time from the flash face and the 80x80 dream, so no 240x240 buffer is needed.
+uint16_t rows16[240 * 16];
+void dreamScreen(float s, int r) {
+  for (int y0 = 0; y0 < 240; y0 += 16) {
+    for (int y = y0; y < y0 + 16; y++) {
+      int sy = EYE_Y + (int)floorf((y - EYE_Y) / s), dy = y - EYE_Y;
+      for (int x = 0; x < 240; x++) {
+        int dx = x - EYE_X, sx = EYE_X + (int)floorf(dx / s);
+        uint16_t c;
+        if (dx * dx + dy * dy < r * r) c = dream::buf[(y / 3) * dream::N + x / 3];
+        else c = (sx >= 0 && sx < 240 && sy >= 0 && sy < 240) ? face_blink[sy * 240 + sx] : 0xFFFF;
+        rows16[(y - y0) * 240 + x] = c;
+      }
+    }
+    gfx->draw16bitRGBBitmap(0, y0, rows16, 240, 16);
+  }
+}
+float dreamSec() { return (millis() - dreamT0) / 1000.0f; }
+
+// fall into a dream: zoom into his eye, then the dream opens out of it
+void enterDream() {
+  dreamScene = naps++ % dream::SCENES;
+  dreamT0 = millis();
+  for (unsigned long t0 = millis(), e; (e = millis() - t0) < DREAM_ZOOM_MS;) dreamScreen(1 + ease3((float)e / DREAM_ZOOM_MS) * 4, 0);
+  for (unsigned long t0 = millis(), e; (e = millis() - t0) < DREAM_IRIS_MS;) {
+    dream::frame(dreamScene, dreamSec());
+    dreamScreen(5, ease3((float)e / DREAM_IRIS_MS) * 250);
+  }
+  dreaming = true;
+}
+
+// the next frame of the dream (called every loop while he dreams)
+void drawDream() { dream::frame(dreamScene, dreamSec()); dreamScreen(1, 1000); }
+
+// pulled out of the dream: it closes back into his eye, the camera backs out to his sleeping face
+void exitDream() {
+  dreaming = false;
+  for (unsigned long t0 = millis(), e; (e = millis() - t0) < DREAM_IRIS_MS;) {
+    dream::frame(dreamScene, dreamSec());
+    dreamScreen(5, (1 - ease3((float)e / DREAM_IRIS_MS)) * 250);
+  }
+  const int back = DREAM_ZOOM_MS * 7 / 10;
+  for (unsigned long t0 = millis(), e; (e = millis() - t0) < back;) dreamScreen(5 - ease3((float)e / back) * 4, 0);
+  showFace(face_blink);
+}
+
 // a real cat pat: he leans into your hand, side to side, purring
 void rubIntoHand() {
   for (int i = 0; i < RUB_STEPS; i++) {
@@ -272,6 +334,7 @@ bool tooManyPats() {
 // a pat wakes him gently, so he yawns and stretches first; a clap doesn't get a yawn
 void wake(const uint16_t *face = face_half, int ms = 300) {
   if (asleep) {
+    if (dreaming) exitDream();                              // leave the dream world first
     asleep = false;
     if (face == face_half && YAWN_ON_WAKE) yawnAndStretch();
     showFace(face); delay(ms); open(); restEars();
@@ -285,6 +348,7 @@ void setup() {
   ledcAttach(PIN_SPEAKER, 2000, 8);
   earL.attach(PIN_EAR_L); earR.attach(PIN_EAR_R); tail.attach(PIN_TAIL);
   band = bandOf(mood);
+  naps = random(dream::SCENES);             // first nap's dream is random, then they take turns
   restEars(); tail.write(TAIL_REST);
 
   int base = touchRead(PIN_TOUCH);          // reading with no finger
@@ -343,6 +407,7 @@ void loop() {
 
   if (!asleep && now - lastActivity > SLEEP_AFTER_MS) {    // nap time
     asleep = true; showFace(face_blink);
+    sleptAt = millis();
     lastDecay = millis();                                  // first nap point comes a full minute in
     nextDream = millis() + random(DREAM_MIN_MS, DREAM_MAX_MS);
   }
@@ -351,5 +416,8 @@ void loop() {
     dreamTwitch();
     nextDream = millis() + random(DREAM_MIN_MS, DREAM_MAX_MS);
   }
-  delay(20);
+
+  if (asleep && !dreaming && millis() - sleptAt > DREAM_WORLD_AFTER_MS) enterDream();
+  if (dreaming) drawDream();                               // a frame takes ~30 ms, so it is the loop's pause
+  else delay(20);
 }
