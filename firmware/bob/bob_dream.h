@@ -46,7 +46,7 @@ static void disc(int cx, int cy, int r, uint16_t col) { for (int y = -r; y <= r;
 static void sparkle(float x, float y, int k, uint16_t col) { put(x, y - k, 1, 2 * k + 1, col); put(x - k, y, 2 * k + 1, 1, col); }
 
 enum { OPEN, SHUT, HAPPY };
-const uint16_t WHITE = C(0xffffff);
+const uint16_t D_WHITE = C(0xffffff);
 
 // ---- Bob, big (home and sky) ----
 const char *const BOB_HEAD[] = {
@@ -64,8 +64,8 @@ const uint16_t B_EYE = C(0x1e1a18), B_BLUSH = C(0xf7a8c8), B_LEGN = C(0xe9e5df),
 static Pal eyesFor(int look, int mood, bool blush) {
   Pal p = BOB_PAL;
   if (blush) p.s('q', B_BLUSH);
-  const uint16_t E = B_EYE, L = WHITE;
-  if (mood == OPEN) p.s('x', look > 0 ? WHITE : E).s('y', look > 0 ? E : WHITE).s('a', E).s('b', E).s('f', E).s('c', L).s('d', E);
+  const uint16_t E = B_EYE, L = D_WHITE;
+  if (mood == OPEN) p.s('x', look > 0 ? D_WHITE : E).s('y', look > 0 ? E : D_WHITE).s('a', E).s('b', E).s('f', E).s('c', L).s('d', E);
   else if (mood == HAPPY) p.s('x', L).s('a', E).s('y', L).s('b', E).s('f', L).s('c', L).s('d', L);
   else p.s('x', L).s('a', L).s('y', L).s('b', E).s('f', E).s('c', L).s('d', L);
   return p;
@@ -89,8 +89,8 @@ static void walker(int bx, int ground, int f, int look, int mood, bool blush, fl
   leg(bx + 4, by + 5, lens[0], dxs[0], B_GREY, B_GREY);
   leg(bx + 12, by + 5, lens[1], dxs[1], B_GREY, B_GREY);
   SPR(BOB_SIDE, bx, by, BOB_PAL);
-  leg(bx + 2, by + 5, lens[2], dxs[2], B_LEGN, WHITE);
-  leg(bx + 10, by + 5, lens[3], dxs[3], B_LEGN, WHITE);
+  leg(bx + 2, by + 5, lens[2], dxs[2], B_LEGN, D_WHITE);
+  leg(bx + 10, by + 5, lens[3], dxs[3], B_LEGN, D_WHITE);
   hx = bx + 5; hy = by - 17;
   SPR(BOB_HEAD, hx, hy, eyesFor(look, mood, blush));
   hx += 7;
@@ -153,7 +153,7 @@ static void smallWalker(const Small &cat, int bx, int ground, int f, bool moving
 }
 
 const float CITY_T = 16, WALK_V = 11, WALK_END = 8.4f, BRAKE = 0.7f, SIT_AT = 9.8f;
-const int G = 66, MX = 40, MY = 21, MR = 10;
+const int G = 66, MX = 40, MY = 21, MOON_R = 10;
 const uint32_t CSKY[10] = {0x0b0f2a, 0x0e1332, 0x11173b, 0x151b45, 0x1a1f4f, 0x20245a, 0x272a64, 0x302f6d, 0x3a3474, 0x453a7a};
 const char *const TANK[] = {"..aaa..", ".aaaaa.", "abbbbba", "aaaaaaa", "abbbbba", "aaaaaaa", ".a...a.", ".a...a."};
 // their tails meet between them and curl up into a heart: Bob's grey makes one side, hers the other
@@ -173,19 +173,19 @@ static void city(float t) {
     int x = (int)(hsh(i, 1) * N), y = (int)(hsh(i, 2) * 46); float tw = sinf(t * 2.1f + i * 1.7f);
     if (hyp(x - MX, y - MY) < 16 || tw < -0.5f) continue;
     if (i % 9 == 0 && tw > 0.6f) sparkle(x, y, 1, C(0xc9ceff));
-    put(x, y, 1, 1, tw > 0.8f ? WHITE : i % 3 ? C(0x8a90c8) : C(0xc9ceff));
+    put(x, y, 1, 1, tw > 0.8f ? D_WHITE : i % 3 ? C(0x8a90c8) : C(0xc9ceff));
   }
   if (T > 12.6f && T < 13.1f) {                                                          // one shooting star while they sit
     float u = (T - 12.6f) / 0.5f;
-    for (int k = 0; k < 6; k++) { float v = u - k * 0.04f; if (v > 0) put(70 - v * 18, 5 + v * 9, 1, 1, k ? C(0x8a90c8) : WHITE); }
+    for (int k = 0; k < 6; k++) { float v = u - k * 0.04f; if (v > 0) put(70 - v * 18, 5 + v * 9, 1, 1, k ? C(0x8a90c8) : D_WHITE); }
   }
-  for (int y = -MR - 5; y <= MR + 5; y++) for (int x = -MR - 5; x <= MR + 5; x++) {      // big full moon, soft glow
+  for (int y = -MOON_R - 5; y <= MOON_R + 5; y++) for (int x = -MOON_R - 5; x <= MOON_R + 5; x++) {      // big full moon, soft glow
     float d = hyp(x, y);
-    if (d < MR + 2.5f || (d < MR + 5 && (x + y) % 2 == 0)) put(MX + x, MY + y, 1, 1, d < MR + 2.5f ? C(0x3a3f86) : C(0x2a2f6e));
+    if (d < MOON_R + 2.5f || (d < MOON_R + 5 && (x + y) % 2 == 0)) put(MX + x, MY + y, 1, 1, d < MOON_R + 2.5f ? C(0x3a3f86) : C(0x2a2f6e));
   }
-  disc(MX, MY, MR, C(0xfff1c4));
-  for (int y = -MR; y <= MR; y++) for (int x = -MR; x <= MR; x++)                        // shaded right limb
-    if (x * x + y * y <= MR * MR + MR && hyp(x - 3, y + 2) > MR - 0.5f) put(MX + x, MY + y, 1, 1, C(0xecdca4));
+  disc(MX, MY, MOON_R, C(0xfff1c4));
+  for (int y = -MOON_R; y <= MOON_R; y++) for (int x = -MOON_R; x <= MOON_R; x++)                        // shaded right limb
+    if (x * x + y * y <= MOON_R * MOON_R + MOON_R && hyp(x - 3, y + 2) > MOON_R - 0.5f) put(MX + x, MY + y, 1, 1, C(0xecdca4));
   static const int CRATER[5][4] = {{-4, -3, 3, 2}, {2, 3, 3, 2}, {-2, 4, 2, 1}, {4, -4, 2, 1}, {-6, 1, 1, 2}};
   for (auto &c : CRATER) put(MX + c[0], MY + c[1], c[2], c[3], C(0xe2d096));
   put(MX - 5, MY - 6, 2, 1, C(0xfffbe8)); put(MX - 6, MY - 5, 1, 2, C(0xfffbe8));
@@ -339,7 +339,7 @@ static void home(float t) {
   if (T >= 3.8f && T < 4.6f) SPR(QMARK, 50, 34, Pal("w", {0x2a2622}));
   if (T >= 4.6f && T < 5.8f) for (int k = 0; k < 4; k++) {
     float ph = fmodf(T * 3 + k * 0.37f, 1);
-    sparkle(34 + hsh(k, 11) * 13, 58 + hsh(k, 12) * 6 - ph * 4, ph < 0.5f ? 1 : 0, ph < 0.5f ? C(0xfff6a8) : WHITE);
+    sparkle(34 + hsh(k, 11) * 13, 58 + hsh(k, 12) * 6 - ph * 4, ph < 0.5f ? 1 : 0, ph < 0.5f ? C(0xfff6a8) : D_WHITE);
   }
   if (T >= 5.6f) SPR(HEART_BIG, 49, 36 - (T - 5.6f) * 8, HEART_PAL);
 }
@@ -355,7 +355,7 @@ static void sky(float t) {
   for (int i = 0; i < 10; i++) put(0, i * 8, N, 8, C(SSKY[i]));
   for (int i = 0; i < 50; i++) {
     float x = fmodf(hsh(i, 1) * N + t * 2, N), tw = sinf(t * 2.2f + i * 1.3f); int y = (int)(hsh(i, 2) * 70);
-    if (tw > -0.3f) put(x, y, 1, 1, tw > 0.8f ? WHITE : C(0xc9c2ff));
+    if (tw > -0.3f) put(x, y, 1, 1, tw > 0.8f ? D_WHITE : C(0xc9c2ff));
   }
   disc(22, 18, 7, C(0xfff3c4)); disc(25, 16, 6, C(SSKY[2]));                                // crescent moon
   static const float CLOUD[3][3] = {{24, 4, 14}, {58, 7, 18}, {12, 2.5f, 10}};               // clouds drift past
